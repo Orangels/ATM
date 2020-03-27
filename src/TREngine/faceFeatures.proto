@@ -1,0 +1,12 @@
+syntax = "proto2";
+
+message CPerson {
+ required int32 id = 1;
+ required string name = 2;
+ repeated float featrue = 3;
+}
+
+message CFaceFeatures {
+ required string imagePath = 1;
+ repeated CPerson persons = 2;
+}
