@@ -56,6 +56,8 @@ public:
 
     queue<cv::Mat> mQueue_front;
     queue<cv::Mat> mQueue_top;
+    queue<cv::Mat> mQueue_rtmp_front;
+    queue<cv::Mat> mQueue_rtmp_top;
 
     int mQueueArrLen = 2;
     int mQueueLen = 5;
@@ -65,16 +67,22 @@ public:
     condition_variable con_top_not_full;
     condition_variable con_top_not_empty;
 
+    condition_variable con_rtmp_front;
+    condition_variable con_rtmp_top;
+
     mutex myMutex_front;
     mutex myMutex_top;
+    mutex myMutex_rtmp_front;
+    mutex myMutex_rtmp_top;
 
-    mutex rtmpMutex;
-    mutex rtmpMutex_2;
+    mutex rtmpMutex_front;
+    mutex rtmpMutex_top;
     rtmpHandler ls_handler ;
     rtmpHandler ls_handler_2;
 private:
     void ProduceImage(int mode);
     void ConsumeImage(int mode);
+    void ConsumeRTMPImage(int mode);
 };
 
 #endif //ATM_COLLECT_H
