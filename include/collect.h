@@ -31,13 +31,21 @@ using namespace std;
 
 enum WARING_TYPE
 {
-    GROUP = 1,
-    HAND = 2,
-    TROUND = 3,
-    HOP = 4,
-    ENTRY = 5
-
+    GROUP = 0,
+    HAND = 1,
+    TROUND = 2,
+    HOP = 3,
+    ENTRY = 4
 };
+
+typedef struct
+{
+    bool group_flag;
+    bool hand_flag;
+    bool tround_flag;
+    bool hop_flag;
+    bool entry_flag;
+} WATING_FLAG;
 
 class Collect {
 public:
@@ -103,14 +111,7 @@ public:
     gearman_return_t gearRet;
     gearman_client_st* gearClient;
 
-    struct WATING_FLAG
-    {
-        bool group_flag;
-        bool hand_flag;
-        bool hop_flag;
-        bool tround_flag;
-        bool entry_flag;
-    } watingFlag = {false,false,false,false,false};
+    WATING_FLAG warningFlag = {false,false,false,false,false};
 private:
     void ProduceImage(int mode);
     void ConsumeImage(int mode);

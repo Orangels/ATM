@@ -20,6 +20,8 @@ int64_t getCurrentTime()
     return tv.tv_sec * 1000 + tv.tv_usec / 1000;
 }
 
+bool updateWaringFlag(WATING_FLAG & warning, Solver function_solver);
+
 Collect::Collect() {
     num_images = image_deliver.num_images;
     Cconfig labels = Cconfig("../cfg/process.ini");
@@ -147,7 +149,7 @@ void Collect::ConsumeWaringImage(int mode){
     while (true){
         std::unique_lock<std::mutex> guard(*lock);
         while(queue->empty()) {
-            std::cout << "Consumer RTMP " << mode << " -- " << num <<" is waiting for items...\n";
+            std::cout << "Consumer WARING " << mode << " -- " << num <<" is waiting for items...\n";
             con_v_wait->wait(guard);
         }
         int64_t start_read = getCurrentTime();
@@ -159,58 +161,77 @@ void Collect::ConsumeWaringImage(int mode){
         rapidjson::PrettyWriter<rapidjson::StringBuffer> writer(buf);
 
         if (mode == 0){
-            string timestamp = to_string(getCurrentTime());
-            string img_full_path = img_root_path + timestamp + "_" + to_string(waringType) + ".jpg";
-            cv::imwrite(img_full_path, img);
-            string img_path = timestamp + "_" + to_string(waringType) + ".jpg";
-
-            writer.StartObject();
-
-            writer.Key("params");
-            writer.StartArray();
-            if (watingFlag.group_flag){
-
-            }
-
-            if (watingFlag.hop_flag){
-
-            }
-
-            if (watingFlag.tround_flag){
-
-            }
-
-            if (watingFlag.entry_flag){
-
-            }
-
-            writer.EndArray();
-
-            writer.EndObject();
-        } else{
             enum WARING_TYPE waringType;
-            waringType = HAND;
+            waringType = GROUP;
 
             string timestamp = to_string(getCurrentTime());
             string img_full_path = img_root_path + timestamp + "_" + to_string(waringType) + ".jpg";
             cv::imwrite(img_full_path, img);
+            string img_path = timestamp + "_" + to_string(waringType) + ".jpg";
 
             writer.StartObject();
 
             writer.Key("params");
             writer.StartArray();
+            if (warningFlag.group_flag){
+                writer.StartObject();
+                writer.Key("path"); writer.String(img_path.c_str());
+                writer.Key("mode");writer.Int(waringType);
+                writer.EndObject();
+            }
 
-            string img_path = timestamp + "_" + to_string(waringType) + ".jpg";
-            writer.StartObject();
-            writer.Key("path"); writer.String(img_path.c_str());
-            writer.Key("mode");writer.Int(waringType);
-            writer.EndObject();
+            if (warningFlag.tround_flag){
+                waringType = TROUND;
+                writer.StartObject();
+                writer.Key("path"); writer.String(img_path.c_str());
+                writer.Key("mode");writer.Int(waringType);
+                writer.EndObject();
+            }
+
+            if (warningFlag.hop_flag){
+                waringType = HOP;
+                writer.StartObject();
+                writer.Key("path"); writer.String(img_path.c_str());
+                writer.Key("mode");writer.Int(waringType);
+                writer.EndObject();
+            }
+
+            if (warningFlag.entry_flag){
+                waringType = ENTRY;
+                writer.StartObject();
+                writer.Key("path"); writer.String(img_path.c_str());
+                writer.Key("mode");writer.Int(waringType);
+                writer.EndObject();
+            }
 
             writer.EndArray();
 
             writer.EndObject();
-
         }
+//        else{
+//            enum WARING_TYPE waringType;
+//            waringType = HAND;
+//
+//            string timestamp = to_string(getCurrentTime());
+//            string img_full_path = img_root_path + timestamp + "_" + to_string(waringType) + ".jpg";
+//            cv::imwrite(img_full_path, img);
+//
+//            writer.StartObject();
+//
+//            writer.Key("params");
+//            writer.StartArray();
+//
+//            string img_path = timestamp + "_" + to_string(waringType) + ".jpg";
+//            writer.StartObject();
+//            writer.Key("path"); writer.String(img_path.c_str());
+//            writer.Key("mode");writer.Int(waringType);
+//            writer.EndObject();
+//
+//            writer.EndArray();
+//
+//            writer.EndObject();
+//
+//        }
 
         const char* json_content = buf.GetString();
         string json_cs = json_content;
@@ -289,53 +310,53 @@ void Collect::ConsumeRTMPImage(int mode){
         guard.unlock();
 
 
-        if (num % 50 == 0 && mode == 0){
-            rapidjson::StringBuffer buf;
-            rapidjson::PrettyWriter<rapidjson::StringBuffer> writer(buf);
-
-            writer.StartObject();
-
-            writer.Key("params");
-            writer.StartArray();
-            for (int i = 0 ; i < 3; i ++){
-                string timestamp = to_string(getCurrentTime());
-                string img_full_path = img_root_path + timestamp + "_" + to_string(i) + ".jpg";
-                cv::imwrite(img_full_path, img);
-                string img_path = timestamp + "_" + to_string(i) + ".jpg";
-                writer.StartObject();
-                writer.Key("path"); writer.String(img_path.c_str());
-                writer.Key("mode");writer.Int(i);
-                writer.EndObject();
-            }
-            writer.EndArray();
-
-            writer.EndObject();
-            const char* json_content = buf.GetString();
-            string json_cs = json_content;
-
-            gearRet = gearman_client_do_background(gearClient,
-                                                   "det_car",
-                                                   NULL,
-                                                   json_cs.c_str(),
-                                                   (size_t)strlen(json_cs.c_str()),
-                                                   NULL);
-            if (gearRet == GEARMAN_SUCCESS)
-            {
-                fprintf(stdout, "Work success!\n");
-            }
-            else if (gearRet == GEARMAN_WORK_FAIL)
-            {
-                fprintf(stderr, "Work failed\n");
-            }
-            else if (gearRet == GEARMAN_TIMEOUT)
-            {
-                fprintf(stderr, "Work timeout\n");
-            }
-            else
-            {
-                fprintf(stderr, "%d,%s\n", gearman_client_errno(gearClient), gearman_client_error(gearClient));
-            }
-        }
+//        if (num % 50 == 0 && mode == 0){
+//            rapidjson::StringBuffer buf;
+//            rapidjson::PrettyWriter<rapidjson::StringBuffer> writer(buf);
+//
+//            writer.StartObject();
+//
+//            writer.Key("params");
+//            writer.StartArray();
+//            for (int i = 0 ; i < 3; i ++){
+//                string timestamp = to_string(getCurrentTime());
+//                string img_full_path = img_root_path + timestamp + "_" + to_string(i) + ".jpg";
+//                cv::imwrite(img_full_path, img);
+//                string img_path = timestamp + "_" + to_string(i) + ".jpg";
+//                writer.StartObject();
+//                writer.Key("path"); writer.String(img_path.c_str());
+//                writer.Key("mode");writer.Int(i);
+//                writer.EndObject();
+//            }
+//            writer.EndArray();
+//
+//            writer.EndObject();
+//            const char* json_content = buf.GetString();
+//            string json_cs = json_content;
+//
+//            gearRet = gearman_client_do_background(gearClient,
+//                                                   "det_car",
+//                                                   NULL,
+//                                                   json_cs.c_str(),
+//                                                   (size_t)strlen(json_cs.c_str()),
+//                                                   NULL);
+//            if (gearRet == GEARMAN_SUCCESS)
+//            {
+//                fprintf(stdout, "Work success!\n");
+//            }
+//            else if (gearRet == GEARMAN_WORK_FAIL)
+//            {
+//                fprintf(stderr, "Work failed\n");
+//            }
+//            else if (gearRet == GEARMAN_TIMEOUT)
+//            {
+//                fprintf(stderr, "Work timeout\n");
+//            }
+//            else
+//            {
+//                fprintf(stderr, "%d,%s\n", gearman_client_errno(gearClient), gearman_client_error(gearClient));
+//            }
+//        }
 
 
         rtmpLock->lock();
@@ -346,7 +367,11 @@ void Collect::ConsumeRTMPImage(int mode){
 }
 
 void Collect::ProduceImage(int mode){
-
+    Cconfig labels = Cconfig("../cfg/process.ini");
+    string path_0 = labels["video_path_0"];
+    string path_1 = labels["video_path_1"];
+    cout << "path_0 " << path_0 << endl;
+    cout << "path_1 " << path_1 << endl;
     cv::VideoCapture cam;
     cv::Mat frame;
     string path = "";
@@ -357,9 +382,8 @@ void Collect::ProduceImage(int mode){
     switch (mode){
         case 0:
 //            path = "rtspsrc location=rtsp://admin:sx123456@192.168.88.37:554/h264/ch2/sub/av_stream latency=0 ! rtph264depay ! h264parse ! nvv4l2decoder ! nvvidconv ! video/x-raw, width=(int)640, height=(int)480, format=(string)BGRx ! videoconvert ! appsink";
-            path = "filesrc location=/srv/ATM_ls/ATM/data/front.mp4 ! qtdemux ! queue ! h264parse !  omxh264dec  ! nvvidconv ! video/x-raw, width=(int)640, height=(int)480, format=(string)BGRx ! videoconvert  ! appsink";
 //            path = "filesrc location=/srv/ATM_ls/ATM/data/front.mp4 ! qtdemux ! queue ! h264parse !  omxh264dec  ! nvvidconv ! video/x-raw, width=(int)640, height=(int)480, format=(string)BGRx ! videoconvert  ! appsink";
-//            path = "../data/front.mp4";
+            path = path_0;
             lock = &myMutex_front;
             queue = &mQueue_front;
             con_v_wait = &con_front_not_full;
@@ -367,8 +391,8 @@ void Collect::ProduceImage(int mode){
             break;
         case 1:
 //            path = "rtspsrc location=rtsp://admin:sx123456@192.168.88.37:554/h264/ch2/sub/av_stream latency=0 ! rtph264depay ! h264parse ! nvv4l2decoder ! nvvidconv ! video/x-raw, width=(int)640, height=(int)480, format=(string)BGRx ! videoconvert ! appsink";
-            path = "filesrc location=/srv/ATM_ls/ATM/data/top.mp4 ! qtdemux ! queue ! h264parse !  omxh264dec  ! nvvidconv ! video/x-raw, width=(int)640, height=(int)480, format=(string)BGRx ! videoconvert  ! appsink";
-//            path = "../data/front.mp4";
+//            path = "filesrc location=/srv/ATM_ls/ATM/data/top.mp4 ! qtdemux ! queue ! h264parse !  omxh264dec  ! nvvidconv ! video/x-raw, width=(int)640, height=(int)480, format=(string)BGRx ! videoconvert  ! appsink";
+            path = path_1;
             lock = &myMutex_top;
             queue = &mQueue_top;
             con_v_wait = &con_top_not_full;
@@ -517,8 +541,8 @@ void Collect::ConsumeImage(int mode){
 //                    cv::Mat rtmp_frame = lsUtils::vis(img, num, head_tracker->tracking_result,
 //                                                      image_class.head_boxes,face_a);
 
-
-                    mQueue_rtmp_front.push(img);
+                    cv::Mat rtmp_frame = lsUtils::vis_Box(img, image_class.head_boxes);
+                    mQueue_rtmp_front.push(rtmp_frame);
                     con_rtmp_front.notify_all();
                     //                    rtmpMutex_front.lock();
 //                    cout << "33333333333333" << endl;
@@ -539,6 +563,14 @@ void Collect::ConsumeImage(int mode){
                 hop_thread.join();
                 instance_group.add_hop_box( hop_det.hat_boxes, hop_det.glass_boxes, hop_det.mask_boxes);
                 function_solver.update(image_class, instance_group);
+//                post waring
+                bool waringTag = updateWaringFlag(warningFlag, function_solver);
+                if (waringTag){
+                    mQueue_waring_front.push(img);
+                    con_waring_front.notify_all();
+                }
+
+
                 int64_t end_front = getCurrentTime();
                 cout << "front time  : "<< mode << " " << num << " -- " << (end_front - start_front) << endl;
 
@@ -559,6 +591,12 @@ void Collect::ConsumeImage(int mode){
                 });
                 tracker_thread.join();
                 function_solver.update(image_class, instance_group);
+                //                post waring
+                bool waringTag = updateWaringFlag(warningFlag, function_solver);
+                if (waringTag){
+                    mQueue_waring_front.push(img);
+                    con_waring_front.notify_all();
+                }
             }
 
         } else if (mode == 1){
@@ -608,6 +646,7 @@ void Collect::multithreadTest(){
     thread thread_RTMP_front(&Collect::ConsumeRTMPImage, this, 0);
     thread thread_RTMP_top(&Collect::ConsumeRTMPImage, this, 1);
 
+    thread thread_waring_front(&Collect::ConsumeWaringImage, this, 0);
 
     thread_write_image_front.join();
     thread_write_image_top.join();
@@ -617,4 +656,31 @@ void Collect::multithreadTest(){
 
     thread_RTMP_front.join();
     thread_RTMP_top.join();
+
+    thread_waring_front.join();
+}
+
+bool updateWaringFlag(WATING_FLAG & warning, Solver function_solver){
+    bool result = false;
+
+    if (warning.group_flag != function_solver.group_flag && function_solver.group_flag){
+        result = true;
+    }
+    if (warning.tround_flag != function_solver.tround_flag && function_solver.tround_flag){
+        result = true;
+    }
+    if (warning.hop_flag != function_solver.hop_flag && function_solver.hop_flag){
+        result = true;
+    }
+    if (warning.entry_flag != function_solver.entry_flag && function_solver.entry_flag){
+        result = true;
+    }
+    warning.group_flag = function_solver.group_flag;
+    warning.tround_flag = function_solver.tround_flag;
+    warning.hop_flag = function_solver.hop_flag;
+    warning.entry_flag = function_solver.entry_flag;
+
+    return result;
+
+
 }

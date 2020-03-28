@@ -57,10 +57,10 @@ public:
         int index = 0;
         if( !s.empty())
         {
-            while( (index = s.find(' ',index)) != string::npos)
-            {
-                s.erase(index,1);
-            }
+//            while( (index = s.find(' ',index)) != string::npos)
+//            {
+//                s.erase(index,1);
+//            }
             s.erase(s.find_last_not_of("\n") + 1);
         }
     }
