@@ -252,6 +252,7 @@ void Collect::ConsumeImage(int mode){
                                       image_class.update_hf(hf_det.head_boxes, hf_det.face_boxes);
 //                                      int64_t end = getCurrentTime();
                                       if (image_class.wake_state and !image_class.head_boxes.empty()) {
+
                                           int64_t start_kp = getCurrentTime();
                                           head_tracker->run(image_class.head_boxes);
                                           vector <vector<float>> boxes, face_a, face_b;
@@ -260,6 +261,7 @@ void Collect::ConsumeImage(int mode){
                                           instance_group.update(num, head_tracker->tracking_result,
                                                                 image_class.head_boxes,
                                                                 face_a, head_tracker->delete_tracking_id);
+                                          cout << "instance_group update " << endl;
                                           cv::Mat rtmp_frame = lsUtils::vis(img, num, head_tracker->tracking_result,
                                                                             image_class.head_boxes,face_a);
                                           rtmpMutex.lock();

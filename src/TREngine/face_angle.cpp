@@ -45,20 +45,17 @@ void Face_Angle::get_points(cv::Mat &image,std::vector<std::vector<float>>& rect
     simage.transferData(true, fa_m_pdetector->getViceCudaStream());
 
     int current_size = rects.size();
-//    std::vector<CFace> fs(current_size);
-    std::vector<CFace> fs(4);
+    std::vector<CFace> fs(current_size);
     for (int i = 0; i < fs.size(); ++i)
     {
         CFace& f = fs[i];
         f.m_pproducer = &simage;
         f.confidence = 0.99;
         f.trackId = i;
-//        float *pface = new float[sizeof(rects[i])];
-        float *pface = new float[sizeof(rects[0])];
-//        if (!rects[i].empty())
-        if (!rects[0].empty())
+        float *pface = new float[sizeof(rects[i])];
+        if (!rects[i].empty())
         {
-            memcpy(pface, &rects[0][0], rects[0].size()*sizeof(float));
+            memcpy(pface, &rects[i][0], rects[i].size()*sizeof(float));
         }
         memcpy(f.xyMinMax, pface, 4 * sizeof(float));
     }
@@ -68,19 +65,26 @@ void Face_Angle::get_points(cv::Mat &image,std::vector<std::vector<float>>& rect
     for (int i = 0; i < fs.size(); ++i) srcp[i] = &fs[i];
 
     fa_m_pdetector->preProcessV(srcp);
-//    exitIfCudaError(cudaStreamSynchronize(fa_m_pdetector->getViceCudaStream()));
-//    fa_m_pdetector->inference(4);
-//    exitIfCudaError(cudaStreamSynchronize(fa_m_pdetector->getCudaStream()));
-//    fa_m_pdetector->postProcessV(srcp, facePoints.data());
+    exitIfCudaError(cudaStreamSynchronize(fa_m_pdetector->getViceCudaStream()));
+    fa_m_pdetector->inference(4);
+    exitIfCudaError(cudaStreamSynchronize(fa_m_pdetector->getCudaStream()));
+    fa_m_pdetector->postProcessV(srcp, facePoints.data());
 
-//    float* p68keypointsCPU = (float*)facePoints.front().getClodData(true);
-//    cudaStream_t cudaStream = fa_m_pdetector->getCudaStream();
+    float* p68keypointsCPU = (float*)facePoints.front().getClodData(true);
+    cudaStream_t cudaStream = fa_m_pdetector->getCudaStream();
     std::vector<std::vector<float>> outs;
-//    for(int t= 0 ;t<current_size;t++){
-//        cudaMemcpyAsync(pointsOnHost, p68keypointsCPU + t*219, sizeof(float)*219, cudaMemcpyDeviceToHost, cudaStream);
-//    }
+    for(int t= 0 ;t<current_size;t++){
+        std::vector<float> r(219);
+        std::vector<float> out;
+        cudaMemcpyAsync(r.data(), p68keypointsCPU + t*219, sizeof(float)*219, cudaMemcpyDeviceToHost, cudaStream);
+        cudaStreamSynchronize(cudaStream);
+        out.push_back(r[216]);
+        out.push_back(r[217]);
+        out.push_back(r[218]);
+        outs.push_back(out);
+    }
     out_put = outs;
-    
+
     cudaFreeHost(cpuBuffer);
     cudaFree(gpuImage);
 }

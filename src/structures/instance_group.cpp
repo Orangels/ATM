@@ -25,6 +25,8 @@ void InstanceGroup::update(int frame_id, vector<int> track_id, vector<Box> head_
     for (auto &id : _delete_id){
         instances.erase(id);
     }
+    std::cout << "face angle size -- " << face_angle.size() << std::endl;
+    std::cout << "head box size -- " << head_boxes.size() << std::endl;
     for (int i = 0; i < head_boxes.size(); i++){
         Angle angle;
         angle.Y = face_angle[i][0];
