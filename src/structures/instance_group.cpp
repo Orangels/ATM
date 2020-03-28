@@ -7,39 +7,74 @@
 #include "config.h"
 
 InstanceGroup::InstanceGroup() {
-//    wake_state = invade = group_flag = hand_flag = false;
-//    Cconfig labels = Cconfig("../cfg/process.ini");
-//    sleep_wake_params_1 = stoi(labels["SLEEP_WAKE_PARAMS_1"]);
-//    sleep_wake_params_2 = stoi(labels["SLEEP_WAKE_PARAMS_2"]);
-//    pre_size_lift = stoi(labels["PRE_SIZE_LIFT"]);
-//    pre_size_right = stoi(labels["PRE_SIZE_RIGHT"]);
-//    face_th = stoi(labels["FACE_THRESHOLD"]);
-//    head_th = stoi(labels["HEAD_THRESHOLD"]);
 }
 
 InstanceGroup::~InstanceGroup() = default;
 
+void InstanceGroup::clear(){
+    track_ids.clear();
+    track_ids_with_face.clear();
+    track_delete_id.clear();
+}
+
 void InstanceGroup::update(int frame_id, vector<int> track_id, vector<Box> head_boxes,
-        vector<vector<float>> face_angle, vector<int> _delete_id){
-    delete_id = _delete_id;
-    for (auto &id : _delete_id){
+        vector<Box> face_boxes, vector<int> delete_id){
+    track_delete_id = delete_id;
+    for (auto &id : delete_id){
         instances.erase(id);
     }
-    std::cout << "face angle size -- " << face_angle.size() << std::endl;
-    std::cout << "head box size -- " << head_boxes.size() << std::endl;
     for (int i = 0; i < head_boxes.size(); i++){
+        track_ids.push_back(track_id[i]);
+        Box face_box;
+        face_box = get_inside(head_boxes[i], face_boxes);
+        if (instances.find(track_id[i]) == instances.end()){
+            instances[track_id[i]].update(head_boxes[i], face_box);
+        } else{
+            Instance instance(track_id[i], head_boxes[i], face_box);
+            instances[track_id[i]] = instance;
+        }
+    }
+}
+
+void InstanceGroup::add_hop_box(vector<Box> hat_boxes, vector<Box> glass_boxes, vector<Box> mask_boxes){
+    for (auto &id : track_ids){
+        Box hat_box, glass_box, mask_box;
+        hat_box = get_inside(instances[id].head_box, hat_boxes);
+        glass_box = get_inside(instances[id].head_box, glass_boxes);
+        mask_box = get_inside(instances[id].head_box, mask_boxes);
+        instances[id].update_hop(hat_box, glass_box, mask_box);
+    }
+}
+
+void InstanceGroup::get_face_box(vector<vector<float>> &face_boxes_input){
+    vector<float> result;
+    for(auto &track_id : track_ids){
+        if(!instances[track_id].face_box.empty()){
+            result.clear();
+            result.push_back(instances[track_id].face_box[0].x1);
+            result.push_back(instances[track_id].face_box[0].y1);
+            result.push_back(instances[track_id].face_box[0].x2);
+            result.push_back(instances[track_id].face_box[0].y2);
+            face_boxes_input.push_back(result);
+            track_ids_with_face.push_back(track_id);
+        }
+    }
+}
+
+void InstanceGroup::update_face_angle(vector<vector<float>> face_angle){
+    for (int i = 0; i < track_ids_with_face.size(); i++){
         Angle angle;
         angle.Y = face_angle[i][0];
         angle.P = face_angle[i][1];
         angle.R = face_angle[i][2];
-        if (instances.find(track_id[i]) == instances.end()){
-            instances[track_id[i]].head_box = head_boxes[i];
-            instances[track_id[i]].pos_angle = angle;
-        } else{
-            Instance instance(track_id[i], head_boxes[i], angle);
-            instances[track_id[i]] = instance;
-            instances.insert(pair<int, Instance>(track_id[i], instance));
-        }
+        instances[track_ids_with_face[i]].pos_angle = angle;
+    }
+}
+
+void InstanceGroup::update_track(int frame_id, vector<int> delete_id){
+    track_delete_id = delete_id;
+    for (auto &id : delete_id){
+        instances.erase(id);
     }
 }
 

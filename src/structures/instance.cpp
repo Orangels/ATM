@@ -8,18 +8,36 @@
 
 Instance::Instance() = default;
 
-Instance::Instance(int _track_id, Box box, Angle angle) {
+Instance::Instance(int _track_id, Box head, Box face) {
     track_id = _track_id;
-    head_box = box;
-    pos_angle = angle;
-//    wake_state = invade = group_flag = hand_flag = false;
-//    Cconfig labels = Cconfig("../cfg/process.ini");
-//    sleep_wake_params_1 = stoi(labels["SLEEP_WAKE_PARAMS_1"]);
-//    sleep_wake_params_2 = stoi(labels["SLEEP_WAKE_PARAMS_2"]);
-//    pre_size_lift = stoi(labels["PRE_SIZE_LIFT"]);
-//    pre_size_right = stoi(labels["PRE_SIZE_RIGHT"]);
-//    face_th = stoi(labels["FACE_THRESHOLD"]);
-//    head_th = stoi(labels["HEAD_THRESHOLD"]);
+    head_box = head;
+    if (face.x2 > 0){
+        face_box.push_back(face);
+    }
 }
 
 Instance::~Instance() = default;
+
+void Instance::update(Box head, Box face){
+    head_box = head;
+    face_box.clear();
+    if (face.x2 > 0){
+        face_box.push_back(face);
+    }
+}
+
+void Instance::update_hop(Box hat, Box glass, Box mask){
+    hat_box.clear();
+    glass_box.clear();
+    mask_box.clear();
+    if (hat.x2 > 0){
+        hat_box.push_back(hat);
+    }
+    if (glass.x2 > 0){
+        glass_box.push_back(glass);
+    }
+    if (mask.x2 > 0){
+        mask_box.push_back(mask);
+    }
+//    pos_angle = angle;
+}

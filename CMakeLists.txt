@@ -9,15 +9,18 @@ find_package(Protobuf REQUIRED)
 
 set(cppCommonPath ${CMAKE_SOURCE_DIR}/src/cppCommon)
 
-include_directories(${OpenCV_INCLUDE_DIRS} include core src/box_tracking src/projectUtils
-        /usr/include /usr/local/ffmpeg/include  ${PROTOBUF_INCLUDE_DIR}  ${cppCommonPath}/include
+include_directories(${OpenCV_INCLUDE_DIRS} include core src/box_tracking
+        /usr/include  ${PROTOBUF_INCLUDE_DIR}  ${cppCommonPath}/include
         src/TREngine
+        /usr/local/ffmpeg/include
+        src/projectUtils
+        /usr/local/include
         )
 if ("${CMAKE_SYSTEM}" MATCHES ".*tegra")
     set(cppComBranch tx2nano)
     set(trtLibPath /usr/lib/aarch64-linux-gnu)
     set(CUDA_CUBLAS_LIBRARIES /usr/local/cuda/targets/aarch64-linux/lib/stubs/libcublas.so)
-#    execute_process(COMMAND  ln -s /srv/models ${CMAKE_SOURCE_DIR}/../../../models)
+    #    execute_process(COMMAND  ln -s /srv/models ${CMAKE_SOURCE_DIR}/../../../models)
 else()
     set(cppComBranch ubuntu)
     set(trtLibPath /usr/lib/x86_64-linux-gnu)
@@ -60,6 +63,8 @@ add_executable(ATM tools/main.cpp include/utils/image_deliver.h src/utils/image_
         src/box_tracking/box_tracking.h src/box_tracking/Hungarian/Hungarian.cpp
         src/box_tracking/Hungarian/Hungarian.h include/utils/track.h src/utils/track.cpp
         include/utils/vis.h src/utils/vis.cpp include/tasks/group_detect.h src/tasks/group_detect.cpp
+        include/tasks/entry_detect.h src/tasks/entry_detect.cpp include/tasks/hand_detect.h src/tasks/hand_detect.cpp
+        include/tasks/turnround_detect.h src/tasks/turnround_detect.cpp
         ${sources})
 
 target_link_libraries(ATM ${OpenCV_LIBS}
@@ -70,6 +75,7 @@ target_link_libraries(ATM ${OpenCV_LIBS}
         /usr/local/ffmpeg/lib/libavformat.so
         /usr/local/ffmpeg/lib/libavutil.so
         /usr/local/ffmpeg/lib/libpostproc.so
-#        /usr/local/ffmpeg/lib/libswresample.so
+        #        /usr/local/ffmpeg/lib/libswresample.so
         /usr/local/ffmpeg/lib/libswscale.so
+        /usr/local/lib/libgearman.so
         )

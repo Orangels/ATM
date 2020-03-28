@@ -6,7 +6,12 @@
 #include "config.h"
 #include "utils/misc.h"
 #include "utils/vis.h"
+
 #include "ls_vis.h"
+#include "rapidjson/document.h"
+#include "rapidjson/writer.h"
+#include "rapidjson/stringbuffer.h"
+#include "rapidjson/prettywriter.h"
 
 int64_t getCurrentTime()
 {
@@ -25,9 +30,9 @@ Collect::Collect() {
     head_tracker = new Track(head_track_mistimes, stoi(labels["IMAGE_W"]), stoi(labels["IMAGE_H"]));
     ssd_detection = new SSD_Detection;
     face_angle = new Face_Angle;
-//    face_reco = new Face_Reco;
+    face_reco = new Face_Reco;
 
-//    ls add
+    //    ls add
     frames_skip = sleep_frames_skip;
     int fps = m_pconfiger->readValue<int>("fps");
     int out_w = m_pconfiger->readValue<int>("out_w");
@@ -43,6 +48,19 @@ Collect::Collect() {
     std::string rtmpPath_2 = m_pconfiger->readValue("rtmpPath_2");
     std::string img_root_path = m_pconfiger->readValue("waring_img_path");
     ls_handler_2 = rtmpHandler("",rtmpPath_2,out_w_2,out_h_2,fps_2);
+
+    //    ls add gearman client init
+    char* gearSvrHost=(char*)"127.0.0.1", *gearSvrPort=(char*)"4730";
+
+    gearClient = gearman_client_create(NULL);
+    gearman_client_set_options(gearClient, GEARMAN_CLIENT_FREE_TASKS);
+    gearman_client_set_timeout(gearClient, 15000);
+
+    gearRet = gearman_client_add_server(gearClient, gearSvrHost, atoi(gearSvrPort));
+    if (gearman_failed(gearRet))
+    {
+        cout << "gearman client init failed" << endl;
+    }
 }
 
 Collect::~Collect() = default;
@@ -51,7 +69,8 @@ void Collect::run() {
     struct timeval tp1;
     struct timeval tp2;
     for (int i=0; i<num_images; i++){
-        instance_group.check_state();
+//        instance_group.check_state();
+        instance_group.clear();
         image_class.frame_id = i;
         gettimeofday(&tp1, NULL);
         image_deliver.get_frame();
@@ -65,46 +84,265 @@ void Collect::run() {
         if (i % frames_skip == 0){
             hf_det.inference(image_deliver.front_img, ssd_detection);
             image_class.update_hf(hf_det.head_boxes, hf_det.face_boxes);
-            hop_det.inference(image_deliver.front_img, ssd_detection);
-            hand_det.inference(image_deliver.top_img, ssd_detection);
-            if(!image_class.keep_head.empty()){
-                for (auto &keep : image_class.keep_head){
-                    cout<<keep<<" ";
-                }
-                cout<<endl;
-            }
-
-            if (image_class.wake_state and !image_class.head_boxes.empty()){
+//            if(!image_class.keep_head.empty()){
+//                for (auto &keep : image_class.keep_head){
+//                    cout<<keep<<" ";
+//                }
+//                cout<<endl;
+//            }
+            if (image_class.wake_state) {
                 head_tracker->run(image_class.head_boxes);
-                vector<vector<float>> boxes, face_a, face_b;
-                boxes = box2vector(image_class.head_boxes);
-                face_angle->get_points(image_deliver.front_img, boxes, face_a);
+                hop_det.inference(image_deliver.front_img, ssd_detection);
+                hand_det.inference(image_deliver.top_img, ssd_detection);
+                image_class.update_hand(hand_det.hand_boxes);
                 instance_group.update(i, head_tracker->tracking_result, image_class.head_boxes,
-                                      face_a, head_tracker->delete_tracking_id);
+                                      image_class.face_boxes, head_tracker->delete_tracking_id);
+                instance_group.add_hop_box( hop_det.hat_boxes, hop_det.glass_boxes, hop_det.mask_boxes);
+                vector <vector<float>> boxes, face_a, face_b;
+                instance_group.get_face_box(boxes);
+                int64_t kp_start = getCurrentTime();
+                ssd_detection->get_angles(boxes, face_a);
+                int64_t kp_end = getCurrentTime();
+                cout << "kp time : -- " << kp_end-kp_start << endl;
+                instance_group.update_face_angle(face_a);
 
-//                vis(image_deliver.front_img, i, head_tracker->tracking_result, image_class.head_boxes,
-//                        face_a);
-
+                vis(image_deliver.front_img, i, head_tracker->tracking_result, instance_group);
+            } else{
+                head_tracker->run(image_class.head_boxes);
+                instance_group.update_track(i, head_tracker->delete_tracking_id);
 //                face_reco->get_feature(image_deliver.front_img, boxes, face_b);
-//                cout<<"track id: "<<endl;
-//                for (auto &keep : head_tracker->tracking_result){
-//                    cout<<keep<<" ";
-//                }
-//                cout<<endl;
-//                cout<<"delete id: "<<endl;
-//                for (auto &keep : head_tracker->delete_tracking_id){
-//                    cout<<keep<<" ";
-//                }
-//                cout<<endl;
             }
             function_solver.update(image_class, instance_group);
         }
         gettimeofday(&tp2, NULL);
         cout<<i<<" :  "<< 1000 * (tp2.tv_sec-tp1.tv_sec) + (tp2.tv_usec-tp1.tv_usec)/1000<<endl;
     }
-//        imshow("output1", image_deliver.front_img);
-//        imshow("output2", image_deliver.top_img);
-//        cv::waitKey(1);
+}
+
+void Collect::ConsumeWaringImage(int mode){
+    cv::Mat img;
+    int num = 0;
+    std::string img_root_path = CConfiger::getOrCreateConfiger()->readValue("waring_img_path");
+    mutex *lock;
+    queue<cv::Mat> *queue;
+    condition_variable *con_v_wait;
+    switch (mode) {
+        case 0:
+            lock = &myMutex_waring_front;
+            queue = &mQueue_waring_front;
+            con_v_wait = &con_waring_front;
+            break;
+        case 1:
+            lock = &myMutex_waring_top;
+            queue = &mQueue_waring_top;
+            con_v_wait = &con_waring_top;
+            break;
+        default:
+            lock = &myMutex_waring_front;
+            queue = &mQueue_waring_front;
+            con_v_wait = &con_waring_front;
+            break;
+
+    }
+    while (true){
+        std::unique_lock<std::mutex> guard(*lock);
+        while(queue->empty()) {
+            std::cout << "Consumer RTMP " << mode << " -- " << num <<" is waiting for items...\n";
+            con_v_wait->wait(guard);
+        }
+        int64_t start_read = getCurrentTime();
+        img = queue->front();
+        queue->pop();
+        guard.unlock();
+
+        rapidjson::StringBuffer buf;
+        rapidjson::PrettyWriter<rapidjson::StringBuffer> writer(buf);
+
+        if (mode == 0){
+            string timestamp = to_string(getCurrentTime());
+            string img_full_path = img_root_path + timestamp + "_" + to_string(waringType) + ".jpg";
+            cv::imwrite(img_full_path, img);
+            string img_path = timestamp + "_" + to_string(waringType) + ".jpg";
+
+            writer.StartObject();
+
+            writer.Key("params");
+            writer.StartArray();
+            if (watingFlag.group_flag){
+
+            }
+
+            if (watingFlag.hop_flag){
+
+            }
+
+            if (watingFlag.tround_flag){
+
+            }
+
+            if (watingFlag.entry_flag){
+
+            }
+
+            writer.EndArray();
+
+            writer.EndObject();
+        } else{
+            enum WARING_TYPE waringType;
+            waringType = HAND;
+
+            string timestamp = to_string(getCurrentTime());
+            string img_full_path = img_root_path + timestamp + "_" + to_string(waringType) + ".jpg";
+            cv::imwrite(img_full_path, img);
+
+            writer.StartObject();
+
+            writer.Key("params");
+            writer.StartArray();
+
+            string img_path = timestamp + "_" + to_string(waringType) + ".jpg";
+            writer.StartObject();
+            writer.Key("path"); writer.String(img_path.c_str());
+            writer.Key("mode");writer.Int(waringType);
+            writer.EndObject();
+
+            writer.EndArray();
+
+            writer.EndObject();
+
+        }
+
+        const char* json_content = buf.GetString();
+        string json_cs = json_content;
+//        TODO lock and unlock
+        gearRet = gearman_client_do_background(gearClient,
+                                               "det_car",
+                                               NULL,
+                                               json_cs.c_str(),
+                                               (size_t)strlen(json_cs.c_str()),
+                                               NULL);
+        if (gearRet == GEARMAN_SUCCESS)
+        {
+            fprintf(stdout, "Work success!\n");
+        }
+        else if (gearRet == GEARMAN_WORK_FAIL)
+        {
+            fprintf(stderr, "Work failed\n");
+        }
+        else if (gearRet == GEARMAN_TIMEOUT)
+        {
+            fprintf(stderr, "Work timeout\n");
+        }
+        else
+        {
+            fprintf(stderr, "%d,%s\n", gearman_client_errno(gearClient), gearman_client_error(gearClient));
+        }
+    }
+
+}
+
+void Collect::ConsumeRTMPImage(int mode){
+    cv::Mat img;
+    int num = 0;
+    std::string img_root_path = CConfiger::getOrCreateConfiger()->readValue("waring_img_path");
+
+
+    mutex *lock;
+    queue<cv::Mat> *queue;
+    condition_variable *con_v_wait;
+    mutex* rtmpLock;
+    rtmpHandler* rtmpHandler;
+
+    switch (mode) {
+        case 0:
+            lock = &myMutex_rtmp_front;
+            queue = &mQueue_rtmp_front;
+            con_v_wait = &con_rtmp_front;
+            rtmpLock = &rtmpMutex_front;
+            rtmpHandler = &ls_handler;
+            break;
+        case 1:
+            lock = &myMutex_rtmp_top;
+            queue = &mQueue_rtmp_top;
+            con_v_wait = &con_rtmp_top;
+            rtmpLock = &rtmpMutex_top;
+            rtmpHandler = &ls_handler_2;
+            break;
+        default:
+            lock = &myMutex_rtmp_front;
+            queue = &mQueue_rtmp_front;
+            con_v_wait = &con_rtmp_front;
+            rtmpLock = &rtmpMutex_front;
+            rtmpHandler = &ls_handler;
+            break;
+    }
+
+    while (true) {
+        std::unique_lock<std::mutex> guard(*lock);
+        while(queue->empty()) {
+            std::cout << "Consumer RTMP " << mode << " -- " << num <<" is waiting for items...\n";
+            con_v_wait->wait(guard);
+        }
+        int64_t start_read = getCurrentTime();
+        img = queue->front();
+        queue->pop();
+        guard.unlock();
+
+
+        if (num % 50 == 0 && mode == 0){
+            rapidjson::StringBuffer buf;
+            rapidjson::PrettyWriter<rapidjson::StringBuffer> writer(buf);
+
+            writer.StartObject();
+
+            writer.Key("params");
+            writer.StartArray();
+            for (int i = 0 ; i < 3; i ++){
+                string timestamp = to_string(getCurrentTime());
+                string img_full_path = img_root_path + timestamp + "_" + to_string(i) + ".jpg";
+                cv::imwrite(img_full_path, img);
+                string img_path = timestamp + "_" + to_string(i) + ".jpg";
+                writer.StartObject();
+                writer.Key("path"); writer.String(img_path.c_str());
+                writer.Key("mode");writer.Int(i);
+                writer.EndObject();
+            }
+            writer.EndArray();
+
+            writer.EndObject();
+            const char* json_content = buf.GetString();
+            string json_cs = json_content;
+
+            gearRet = gearman_client_do_background(gearClient,
+                                                   "det_car",
+                                                   NULL,
+                                                   json_cs.c_str(),
+                                                   (size_t)strlen(json_cs.c_str()),
+                                                   NULL);
+            if (gearRet == GEARMAN_SUCCESS)
+            {
+                fprintf(stdout, "Work success!\n");
+            }
+            else if (gearRet == GEARMAN_WORK_FAIL)
+            {
+                fprintf(stderr, "Work failed\n");
+            }
+            else if (gearRet == GEARMAN_TIMEOUT)
+            {
+                fprintf(stderr, "Work timeout\n");
+            }
+            else
+            {
+                fprintf(stderr, "%d,%s\n", gearman_client_errno(gearClient), gearman_client_error(gearClient));
+            }
+        }
+
+
+        rtmpLock->lock();
+        rtmpHandler->pushRTMP(img);
+        rtmpLock->unlock();
+        num++;
+    }
 }
 
 void Collect::ProduceImage(int mode){
@@ -120,6 +358,7 @@ void Collect::ProduceImage(int mode){
         case 0:
 //            path = "rtspsrc location=rtsp://admin:sx123456@192.168.88.37:554/h264/ch2/sub/av_stream latency=0 ! rtph264depay ! h264parse ! nvv4l2decoder ! nvvidconv ! video/x-raw, width=(int)640, height=(int)480, format=(string)BGRx ! videoconvert ! appsink";
             path = "filesrc location=/srv/ATM_ls/ATM/data/front.mp4 ! qtdemux ! queue ! h264parse !  omxh264dec  ! nvvidconv ! video/x-raw, width=(int)640, height=(int)480, format=(string)BGRx ! videoconvert  ! appsink";
+//            path = "filesrc location=/srv/ATM_ls/ATM/data/front.mp4 ! qtdemux ! queue ! h264parse !  omxh264dec  ! nvvidconv ! video/x-raw, width=(int)640, height=(int)480, format=(string)BGRx ! videoconvert  ! appsink";
 //            path = "../data/front.mp4";
             lock = &myMutex_front;
             queue = &mQueue_front;
@@ -169,20 +408,22 @@ void Collect::ProduceImage(int mode){
             }
         }
 
-        if (i % frames_skip != 0){
-            if (i % 2 == 1 && mode == 0){
-                rtmpMutex.lock();
+        if (i % frames_skip != 0 ){
+            if (mode == 0){
+                rtmpMutex_front.lock();
                 ls_handler.pushRTMP(frame);
-                rtmpMutex.unlock();
+                rtmpMutex_front.unlock();
             }
 
-            if (i % 2 == 1 && mode == 1){
-                rtmpMutex_2.lock();
+//            if (i % 2 == 1 && mode == 1){
+            if (mode == 1){
+                rtmpMutex_top.lock();
                 ls_handler_2.pushRTMP(frame);
-                rtmpMutex_2.unlock();
+                rtmpMutex_top.unlock();
             }
             continue;
         }
+
         num ++;
         if (mode == 0){
             image_class.frame_id = i;
@@ -202,7 +443,7 @@ void Collect::ProduceImage(int mode){
     }
     int64_t end_all = getCurrentTime();
     cout << "write img over -- " << (end_all - start_all) / clo_num / 1.0<< endl;
-    cout << "timestamp -- " << getCurrentTime() << endl;
+//    cout << "timestamp -- " << getCurrentTime() << endl;
     cout << "start timestamp --- " << start_all << endl;
 }
 
@@ -244,68 +485,109 @@ void Collect::ConsumeImage(int mode){
         int64_t start_read = getCurrentTime();
         img = queue->front();
         if (mode == 0){
+
+            instance_group.clear();
+
+            int64_t start_front = getCurrentTime();
             std::thread hf_thread([&]()
                                   {
                                       int64_t start = getCurrentTime();
                                       hf_det.inference(img, ssd_detection);
                                       int64_t end = getCurrentTime();
                                       image_class.update_hf(hf_det.head_boxes, hf_det.face_boxes);
-//                                      int64_t end = getCurrentTime();
-                                      if (image_class.wake_state and !image_class.head_boxes.empty()) {
-
-                                          int64_t start_kp = getCurrentTime();
-                                          head_tracker->run(image_class.head_boxes);
-                                          vector <vector<float>> boxes, face_a, face_b;
-                                          boxes = box2vector(image_class.head_boxes);
-                                          face_angle->get_points(img, boxes, face_a);
-                                          instance_group.update(num, head_tracker->tracking_result,
-                                                                image_class.head_boxes,
-                                                                face_a, head_tracker->delete_tracking_id);
-                                          cout << "instance_group update " << endl;
-                                          cv::Mat rtmp_frame = lsUtils::vis(img, num, head_tracker->tracking_result,
-                                                                            image_class.head_boxes,face_a);
-                                          rtmpMutex.lock();
-                                          cout << "33333333333333" << endl;
-                                          ls_handler.pushRTMP(rtmp_frame);
-                                          cout << "44444444444444" << endl;
-                                          rtmpMutex.unlock();
-
-                                          int64_t end_kp = getCurrentTime();
-                                          cout << "3d kp time : " << num << " -- " << end_kp-start_kp << endl;
-                                      }
-                                      function_solver.update(image_class, instance_group);
+////                                      int64_t end = getCurrentTime();
                                       cout << "hf time  : " << num << " -- " << (end - start) << endl;
-                                      cout << "timestamp mode 0 -- " << getCurrentTime() << endl;
+//                                      cout << "timestamp mode 0 -- " << getCurrentTime() << endl;
                                   });
-            std::thread hop_thread([this, img, num]()
-                                   {
-                                       int64_t start = getCurrentTime();
-                                       hop_det.inference(img, ssd_detection);
-                                       int64_t end = getCurrentTime();
-                                       cout << "hop time  : " << num << " -- " << (end - start) << endl;
-                                       cout << "timestamp mode 1 -- " << getCurrentTime() << endl;
-                                   });
-            hf_thread.join();
-            hop_thread.join();
+
+            if (image_class.wake_state) {
+                std::thread track_points_thread([&](){
+                    hf_thread.join();
+                    head_tracker->run(image_class.head_boxes);
+                    instance_group.update(num, head_tracker->tracking_result, image_class.head_boxes,
+                                          image_class.face_boxes, head_tracker->delete_tracking_id);
+                    vector <vector<float>> boxes, face_a, face_b;
+                    instance_group.get_face_box(boxes);
+                    int64_t kp_start = getCurrentTime();
+                    ssd_detection->get_angles(boxes, face_a);
+                    int64_t kp_end = getCurrentTime();
+                    cout << "kp time : "<< num << " --  "  << kp_end-kp_start << endl;
+                    instance_group.update_face_angle(face_a);
+//                    推流
+//                    cv::Mat rtmp_frame = lsUtils::vis(img, num, head_tracker->tracking_result,
+//                                                      image_class.head_boxes,face_a);
+
+
+                    mQueue_rtmp_front.push(img);
+                    con_rtmp_front.notify_all();
+                    //                    rtmpMutex_front.lock();
+//                    cout << "33333333333333" << endl;
+//                    ls_handler.pushRTMP(rtmp_frame);
+//                    cout << "44444444444444" << endl;
+//                    rtmpMutex_front.unlock();
+                });
+
+                std::thread hop_thread([&](){
+                    int64_t start = getCurrentTime();
+                    hop_det.inference(img, ssd_detection);
+//                    instance_group.add_hop_box( hop_det.hat_boxes, hop_det.glass_boxes, hop_det.mask_boxes);
+                    int64_t end = getCurrentTime();
+                    cout << "hop time  : " << num << " -- " << (end - start) << endl;
+//                    cout << "timestamp mode 1 -- " << getCurrentTime() << endl;
+                });
+                track_points_thread.join();
+                hop_thread.join();
+                instance_group.add_hop_box( hop_det.hat_boxes, hop_det.glass_boxes, hop_det.mask_boxes);
+                function_solver.update(image_class, instance_group);
+                int64_t end_front = getCurrentTime();
+                cout << "front time  : "<< mode << " " << num << " -- " << (end_front - start_front) << endl;
+
+            } else {
+                std::thread tracker_thread([&](){
+                    hf_thread.join();
+                    head_tracker->run(image_class.head_boxes);
+                    instance_group.update_track(num, head_tracker->delete_tracking_id);
+//                推流
+                    cv::Mat rtmp_frame = lsUtils::vis_Box(img, image_class.head_boxes);
+                    mQueue_rtmp_front.push(rtmp_frame);
+                    con_rtmp_front.notify_all();
+//                    rtmpMutex_front.lock();
+//                    cout << "33333333333333" << endl;
+//                    ls_handler.pushRTMP(rtmp_frame);
+//                    cout << "44444444444444" << endl;
+//                    rtmpMutex_front.unlock();
+                });
+                tracker_thread.join();
+                function_solver.update(image_class, instance_group);
+            }
 
         } else if (mode == 1){
-//            std::thread hand_thread([this, img, num]()
-            std::thread hand_thread([&]()
-                                    {
-                                        int64_t start = getCurrentTime();
-                                        hand_det.inference(img, ssd_detection);
-                                        int64_t end = getCurrentTime();
-                                        cv::Mat rtmp_frame = lsUtils::vis_Box(img, hand_det.hand_boxes);
-                                        rtmpMutex_2.lock();
-                                        ls_handler_2.pushRTMP(rtmp_frame);
-                                        rtmpMutex_2.unlock();
-                                        cout << "hand time  : " << num << " -- " << (end - start) << endl;
-                                        cout << "timestamp -- " << getCurrentTime() << endl;
-                                    });
-            hand_thread.join();
+            if (image_class.wake_state) {
+                int64_t start_hand = getCurrentTime();
+                std::thread hand_thread([&]()
+                                        {
+                                            int64_t start = getCurrentTime();
+                                            hand_det.inference(img, ssd_detection);
+                                            image_class.update_hand(hand_det.hand_boxes);
+//                                            int64_t end = getCurrentTime();
+                                            cv::Mat rtmp_frame = lsUtils::vis_Box(img, hand_det.hand_boxes);
+                                            mQueue_rtmp_top.push(rtmp_frame);
+                                            con_rtmp_top.notify_all();
+                                            int64_t end = getCurrentTime();
+                                            cout << "hand time : " << num << " -- " << (end - start) << endl;
+//                                            cout << "timestamp -- " << getCurrentTime() << endl;
+                                        });
+                hand_thread.join();
+                int64_t end_hand = getCurrentTime();
+                cout << "hand time total: " << num << " -- " << (end_hand - start_hand) << endl;
+            } else{
+                rtmpMutex_top.lock();
+                ls_handler_2.pushRTMP(img);
+                rtmpMutex_top.unlock();
+            }
         }
         int64_t end_read = getCurrentTime();
-        cout << "read timestamp -- " << end_read << endl;
+//        cout << "read timestamp -- " << end_read << endl;
         cout << "read time cost : " << mode << " " << num << " -- " << (end_read - start_read) << endl;
         queue->pop();
         con_v_notification->notify_all();
@@ -323,80 +605,16 @@ void Collect::multithreadTest(){
     thread thread_read_image_front(&Collect::ConsumeImage, this, 0);
     thread thread_read_image_top(&Collect::ConsumeImage, this, 1);
 
+    thread thread_RTMP_front(&Collect::ConsumeRTMPImage, this, 0);
+    thread thread_RTMP_top(&Collect::ConsumeRTMPImage, this, 1);
+
+
     thread_write_image_front.join();
     thread_write_image_top.join();
 
     thread_read_image_front.join();
     thread_read_image_top.join();
-}
 
-void Collect::test() {
-    cv::Mat image = cv::imread("/srv/ATM/sample_image/000000255800.jpg");
-
-    image_deliver.get_frame();
-    // clock_t start_all = clock();
-
-    struct timeval tp;
-    struct timeval tp1;
-    int g_time_start;
-    int g_time_end;
-    gettimeofday(&tp,NULL);
-    g_time_start = tp.tv_sec * 1000 + tp.tv_usec/1000;
-    int clo_num = 300;
-    for (int i=0; i<clo_num; i++){
-        image_class.frame_id = i;
-        image_deliver.get_frame();
-        hf_det.inference(image_deliver.front_img, ssd_detection);
-        hop_det.inference(image_deliver.front_img, ssd_detection);
-        hand_det.inference(image_deliver.top_img, ssd_detection);
-
-        // hf_det.inference(image, ssd_detection);
-        // hop_det.inference(image, ssd_detection);
-        // hand_det.inference(image, ssd_detection);
-    }
-    // clock_t end_all = clock();
-    // cout << (end_all - start_all) / 1000. / clo_num << endl;
-    gettimeofday(&tp1,NULL);
-    g_time_end = tp1.tv_sec * 1000 + tp1.tv_usec/1000;
-
-    cout << (g_time_end - g_time_start) / clo_num << endl;
-    // cout << g_time_end - g_time_start << endl;
-    cout << "read img over" << endl;
-}
-
-void Collect::test2() {
-    cv::Mat image = cv::imread("/srv/ATM/sample_image/000000255800.jpg");
-
-    image_deliver.get_frame();
-    hf_det.inference(image_deliver.front_img, ssd_detection);
-    image_class.update_hf(hf_det.head_boxes, hf_det.face_boxes);
-    cout<<image_class.head_boxes.size()<<endl;
-
-    struct timeval tp;
-    struct timeval tp1;
-    int g_time_start;
-    int g_time_end;
-    gettimeofday(&tp,NULL);
-    g_time_start = tp.tv_sec * 1000 + tp.tv_usec/1000;
-    int clo_num = 300;
-    for (int i=0; i<clo_num; i++){
-        vector<vector<float>> boxes, face_a, face_b;
-        boxes = box2vector(image_class.head_boxes);
-        face_angle->get_points(image_deliver.front_img, boxes, face_a);
-//        face_reco->get_feature(image_deliver.front_img, boxes, face_b);
-//        image_class.frame_id = i;
-//        image_deliver.get_frame();
-//        hf_det.inference(image_deliver.front_img, ssd_detection);
-//        hop_det.inference(image_deliver.front_img, ssd_detection);
-//        hand_det.inference(image_deliver.top_img, ssd_detection);
-//
-//        // hf_det.inference(image, ssd_detection);
-//        // hop_det.inference(image, ssd_detection);
-//        // hand_det.inference(image, ssd_detection);
-    }
-    gettimeofday(&tp1,NULL);
-    g_time_end = tp1.tv_sec * 1000 + tp1.tv_usec/1000;
-
-    cout << (g_time_end - g_time_start) / clo_num << endl;
-    cout << "read img over" << endl;
+    thread_RTMP_front.join();
+    thread_RTMP_top.join();
 }

@@ -23,5 +23,4 @@ public:
 private:
     CModelEngine *fa_m_pdetector;
     CConfiger* m_pconfiger;
-    float * pointsOnHost;
 };

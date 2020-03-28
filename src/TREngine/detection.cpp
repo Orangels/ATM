@@ -33,13 +33,15 @@ SSD_Detection ::SSD_Detection()
 	hf_m_pdetector = (CModelEngine*)m_pfactories->createProduct(hf_detectionType);
 	hand_m_pdetector = (CModelEngine*)m_pfactories->createProduct(hand_detectionType);
 	hop_m_pdetector =(CModelEngine*)m_pfactories->createProduct(hop_detectionType);
-//	fa_m_pdetector = (CModelEngine*)m_pfactories->createProduct("CKeyPointsGenerator");
+	fa_m_pdetector = (CModelEngine*)m_pfactories->createProduct("CKeyPointsGenerator");
+	cudaMalloc((void**)&mhf_gpuImage, 1920*1080*3);
+	fr_m_pdetector = (CModelEngine*)m_pfactories->createProduct("CFaceAttributeCalculator");
 
 }
 
 SSD_Detection::~SSD_Detection()
 {
-
+    cudaFree(mhf_gpuImage);
 }
 
 void __outputDetections(const CImageDetections& vd)
@@ -59,17 +61,12 @@ void SSD_Detection::detect_hf(cv::Mat &image, std::vector<float>& hf_boxs)
     std::vector<CImageDetections> dstd(batchSize);
     auto viceStream = hf_m_pdetector->getViceCudaStream();
 	cudaSetDevice(gpuIndex);
-	CImage simage;
-	char* cpuBuffer = NULL;
-    cudaMallocHost((void**)&cpuBuffer, image.cols*image.rows * 3);
-    memcpy(cpuBuffer, image.data, image.cols*image.rows * 3);
-    simage.initalize(0, 0, image.cols, image.rows, cpuBuffer);
-    unsigned char* gpuImage = NULL;
-//    std::cout << "image bites: " << simage.getClodDataSize() << std::endl;
-    cudaMalloc((void**)&gpuImage, simage.getClodDataSize());
-    simage.setClodData(gpuImage, true);
-    std::vector<CDataShared*> srcd(batchSize, &simage);
-    simage.transferData(true, viceStream);
+
+
+    mhf_image.initalize(0, 0, image.cols, image.rows, image.data);
+    mhf_image.setClodData(mhf_gpuImage, true);
+    std::vector<CDataShared*> srcd(batchSize, &mhf_image);
+    mhf_image.transferData(true, viceStream);
 
     hf_m_pdetector->preProcessV(srcd);
     cudaStreamSynchronize(viceStream);
@@ -81,94 +78,63 @@ void SSD_Detection::detect_hf(cv::Mat &image, std::vector<float>& hf_boxs)
 //    __outputDetections(dstd[0]);
     hf_boxs = dstd[0].detections;
 
-    cudaFreeHost(cpuBuffer);
-    cudaFree(gpuImage);
 }
 
-//void SSD_Detection::detect_hf_with_point(cv::Mat &image, std::vector<float>& hf_boxs)
-//{
-//
-//    int gpuIndex = m_pconfiger->readValue<int>("gpuIndex");
-//    int batchSize = m_pconfiger->readValue<int>("hf_detectionBatchSize");
-//    std::vector<CImageDetections> dstd(batchSize);
-//    auto viceStream = hf_m_pdetector->getViceCudaStream();
-//	cudaSetDevice(gpuIndex);
-//	CImage simage;
-//	char* cpuBuffer = NULL;
-//    cudaMallocHost((void**)&cpuBuffer, image.cols*image.rows * 3);
-//    memcpy(cpuBuffer, image.data, image.cols*image.rows * 3);
-//    simage.initalize(0, 0, image.cols, image.rows, cpuBuffer);
-//    unsigned char* gpuImage = NULL;
-////    std::cout << "image bites: " << simage.getClodDataSize() << std::endl;
-//    cudaMalloc((void**)&gpuImage, simage.getClodDataSize());
-//    simage.setClodData(gpuImage, true);
-//    std::vector<CDataShared*> srcd(batchSize, &simage);
-//    simage.transferData(true, viceStream);
-//
-//    hf_m_pdetector->preProcessV(srcd);
-//    cudaStreamSynchronize(viceStream);
-//	hf_m_pdetector->inference(batchSize);
-//	exitIfCudaError(cudaStreamSynchronize(viceStream));
-//	hf_m_pdetector->postProcessV(srcd, dstd.data());
-//    dstd[0].m_pproducer = (CImage*)srcd[0];
-////    __outputDetections(dstd[0]);
-//    hf_boxs = dstd[0].detections;
-//
-//    //  do something to the boxes
-//    std::vector<float> boxs_left = hf_boxs;
-//
-//    std::vector<float> angles;
-//    int num_faces = boxs_left.size() / 6;
-//    int num_iter = ceil(num_faces / 4.0);
-//
-//    for(int i =0;i<num_iter;i++)
-//    {
-//        // 4face as a batch ,if num of face less than 4, batch = num
-//        int current_size = num_iter*4 >num_faces? num_faces%4: 4;
-//        std::vector<CFace> fs(current_size);
-//        for (int j = 0; j < fs.size(); ++j)
-//        {
-//            CFace& f = fs[j];
-//            f.m_pproducer = &simage;
-//            f.confidence = 0.99;
-//            f.trackId = i;
-//            float *pface = new float[6];
-//            memcpy(pface, &boxs_left[(i*4 +j)*6], 6 *sizeof(float));
-//            memcpy(f.xyMinMax, pface + 2, 4 * sizeof(float));
-////            std::cout << f.xyMinMax[0] << ", " << f.xyMinMax[1] << ", " << f.xyMinMax[2] << ", " << f.xyMinMax[3] << ", " <<std::endl;
-//        }
-//        std::vector<CDataShared*> srcp(4, &fs[0]);
-//        std::vector<CFaceKeyPoints> facePoints(fa_m_pdetector->getBatchSize());
-//        for (int i = 0; i < fs.size(); ++i) srcp[i] = &fs[i];
-//
-//        fa_m_pdetector->preProcessV(srcp);
-//        exitIfCudaError(cudaStreamSynchronize(fa_m_pdetector->getViceCudaStream()));
-//        fa_m_pdetector->inference(4);
-//        exitIfCudaError(cudaStreamSynchronize(fa_m_pdetector->getCudaStream()));
-//        fa_m_pdetector->postProcessV(srcp, facePoints.data());
-//        float* p68keypointsCPU = (float*)facePoints.front().getClodData(true);
-//        //    std::cout <<"p68keypointsCPU"<<p68keypointsCPU<<std::endl;
-//
-//        cudaStream_t cudaStream = fa_m_pdetector->getCudaStream();
-//        std::vector<std::vector<float>> outs;
-//        for(int t= 0 ;t<current_size;t++){
-//            std::string vInfor = std::to_string(t) + "p73";
-//            std::vector<float> r(219);
-//            std::vector<float> out;
-//            cudaMemcpyAsync(r.data(), p68keypointsCPU + t*219, sizeof(float)*219, cudaMemcpyDeviceToHost, cudaStream);
-//            cudaStreamSynchronize(cudaStream);
-//
-////            std::cout <<" angle "<< r[216]<<" "<<r[217]<<" "<<r[218]<<std::endl;
-//            angles.push_back(r[216]);
-//            angles.push_back(r[217]);
-//            angles.push_back(r[218]);
-//        }
-//    }
-//    for(int t=0;t<angles.size();t++) std::cout<< angles[t]<<" ";
-//
-//    cudaFreeHost(cpuBuffer);
-//    cudaFree(gpuImage);
-//}
+void SSD_Detection::get_angles(std::vector<std::vector<float>>& rects, std::vector<std::vector<float>>& angles)
+{
+    if(rects.size()!=0)
+    {
+        auto viceStream = fa_m_pdetector->getViceCudaStream();
+        int num_faces = rects.size();
+        int num_iter = ceil(num_faces / 4.0);
+        for(int i =0;i<num_iter;i++)
+        {
+            // 4face as a batch ,if num of face less than 4, batch = num
+            int current_size = num_iter*4 >num_faces? num_faces%4: 4;
+            std::vector<CFace> fs(current_size);
+            for (int j = 0; j < fs.size(); ++j)
+            {
+                CFace& f = fs[j];
+                f.m_pproducer = &mhf_image;
+                f.confidence = 0.99;
+                f.trackId = i;
+                float *pface = new float[4];
+                memcpy(pface, &rects[j][0], rects[j].size() *sizeof(float));
+                memcpy(f.xyMinMax, pface , 4 * sizeof(float));
+//                std::cout << f.xyMinMax[0] << ", " << f.xyMinMax[1] << ", " << f.xyMinMax[2] << ", " << f.xyMinMax[3] << ", " <<std::endl;
+//                std::cout << *pface << ", " << *(pface+1) << ", " << *(pface+2) << ", " << *(pface+3) << ", "<<std::endl;
+            }
+            std::vector<CDataShared*> srcp(4, &fs[0]);
+            std::vector<CFaceKeyPoints> facePoints(fa_m_pdetector->getBatchSize());
+            for (int i = 0; i < fs.size(); ++i) srcp[i] = &fs[i];
+
+            fa_m_pdetector->preProcessV(srcp);
+
+            cudaStreamSynchronize(fa_m_pdetector->getViceCudaStream());
+
+
+            fa_m_pdetector->inference(4);
+
+            exitIfCudaError(cudaStreamSynchronize(viceStream));
+            fa_m_pdetector->postProcessV(srcp, facePoints.data());
+            exitIfCudaError(cudaStreamSynchronize(viceStream));
+            float *points = fa_m_pdetector->resultOnHost;
+            for(int t= 0 ;t<current_size;t++){
+                std::vector<float> out;
+                out.push_back(*(points+t*219+216));
+                out.push_back(*(points+t*219+217));
+                out.push_back(*(points+t*219+218));
+//                std::cout<<out[0]<< " "<<out[1]<<" "<<out[2]<<std::endl;
+                angles.push_back(out);
+            }
+        }
+    }
+}
+
+void SSD_Detection::get_features(std::vector<std::vector<float>>& rects, std::vector<float>& features)
+{
+
+}
 
 void SSD_Detection::detect_hand(cv::Mat &image, std::vector<float>& hand_boxs)
 {

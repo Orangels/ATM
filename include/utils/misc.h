@@ -25,4 +25,10 @@ vector<vector<float>> box2vector(vector<Box> boxes);
 
 vector<Box> get_box_by_area(vector<Box> boxes, int min_area, int max_area);
 
+Box get_inside(Box box, vector<Box> boxes);
+
+vector<vector<Box>> group_point(vector<Box> all_heads, int max, int group_area_1, int group_area_2);
+
+vector<Box> invade(Box box, vector<Box> boxes, int area_th);
+
 #endif //ATM_MISC_H

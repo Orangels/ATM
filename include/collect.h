@@ -25,8 +25,19 @@
 #include <thread>
 #include <vector>
 #include "rtmpHandler.h"
+#include <libgearman/gearman.h>
 
 using namespace std;
+
+enum WARING_TYPE
+{
+    GROUP = 1,
+    HAND = 2,
+    TROUND = 3,
+    HOP = 4,
+    ENTRY = 5
+
+};
 
 class Collect {
 public:
@@ -53,29 +64,58 @@ public:
 
     //    ls add
     void multithreadTest();
+    int mQueueArrLen = 2;
+    int mQueueLen = 5;
 
     queue<cv::Mat> mQueue_front;
     queue<cv::Mat> mQueue_top;
+    queue<cv::Mat> mQueue_rtmp_front;
+    queue<cv::Mat> mQueue_rtmp_top;
+    queue<cv::Mat> mQueue_waring_front;
+    queue<cv::Mat> mQueue_waring_top;
 
-    int mQueueArrLen = 2;
-    int mQueueLen = 5;
+
     condition_variable con_front_not_full;
     condition_variable con_front_not_empty;
 
     condition_variable con_top_not_full;
     condition_variable con_top_not_empty;
 
+    condition_variable con_rtmp_front;
+    condition_variable con_rtmp_top;
+
+    condition_variable con_waring_front;
+    condition_variable con_waring_top;
+
     mutex myMutex_front;
     mutex myMutex_top;
+    mutex myMutex_rtmp_front;
+    mutex myMutex_rtmp_top;
+    mutex myMutex_waring_front;
+    mutex myMutex_waring_top;
 
-    mutex rtmpMutex;
-    mutex rtmpMutex_2;
+    mutex rtmpMutex_front;
+    mutex rtmpMutex_top;
+
     rtmpHandler ls_handler ;
     rtmpHandler ls_handler_2;
 
+    gearman_return_t gearRet;
+    gearman_client_st* gearClient;
+
+    struct WATING_FLAG
+    {
+        bool group_flag;
+        bool hand_flag;
+        bool hop_flag;
+        bool tround_flag;
+        bool entry_flag;
+    } watingFlag = {false,false,false,false,false};
 private:
     void ProduceImage(int mode);
     void ConsumeImage(int mode);
+    void ConsumeRTMPImage(int mode);
+    void ConsumeWaringImage(int mode);
 };
 
 #endif //ATM_COLLECT_H

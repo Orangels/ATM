@@ -34,6 +34,7 @@ public:
 	inline cudaStream_t getViceCudaStream(){ return m_viceStream; }
 	inline int getBatchSize() const { return m_batchSize; }
 	virtual void get_feature(std::vector<std::vector<float>>& fea){ }
+	float* resultOnHost;
 
 protected:
 	bool _loadNetwork(const std::string& vModelPrefix, cudaStream_t vpCudaStream = NULL);

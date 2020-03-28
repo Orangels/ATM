@@ -12,6 +12,7 @@ CKeyPointsGenerator::CKeyPointsGenerator()
 	cudaMalloc((void**)&m_gpuFaceBoxes, bites);
 	cudaMallocHost((void**)&m_cpuFaceBoxes, bites);
 	cudaMalloc((void**)&m_pointsBuffer, 219*getBatchSize()*sizeof(float));
+	cudaMallocHost((void**)&resultOnHost,219*getBatchSize()*sizeof(float));
 }
 
 CKeyPointsGenerator::~CKeyPointsGenerator()
@@ -93,7 +94,8 @@ void CKeyPointsGenerator::postProcessV(std::vector<CDataShared *>& vmodelInputes
 //		CCaffePlugin::_printGPUdata(m_pointsBuffer + i * 219, 219, cudaStream, std::to_string(i) + "p73");
 // 	}
 // 	std::cout << "####" << std::endl; itest++;
-
+    cudaMemcpyAsync(resultOnHost, m_pointsBuffer, 219*getBatchSize()*sizeof(float), cudaMemcpyDeviceToHost, getCudaStream());
+    
 	dst = (CFaceKeyPoints*)voutput;
 	for (int i = 0; i < vmodelInputes.size(); ++i)
 		dst++->setClodData(m_pointsBuffer+i*219, true);

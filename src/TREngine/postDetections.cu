@@ -143,7 +143,7 @@ void postDetections(int vBatchSize, int* vpwidthHeight, float* viopDetections, S
 	if (vpwidthHeight) cudaMemcpyAsync(pwidthHeight, vpwidthHeight, vBatchSize*2*sizeof(int), cudaMemcpyHostToDevice, vStream);
 
 	filtetrBoxesAndSort << <vBatchSize, vkeep_top_k, 0, vStream >> > (viopDetections, pwidthHeight);
-	faceRefine << <vBatchSize, vkeep_top_k, 0, vStream >> > (viopDetections, 2, pwidthHeight);
+//	faceRefine << <vBatchSize, vkeep_top_k, 0, vStream >> > (viopDetections, 2, pwidthHeight);
 }
 
 
