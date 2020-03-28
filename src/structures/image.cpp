@@ -15,6 +15,8 @@ Image::Image() {
     pre_size_right = stoi(labels["PRE_SIZE_RIGHT"]);
     face_th = stoi(labels["FACE_THRESHOLD"]);
     head_th = stoi(labels["HEAD_THRESHOLD"]);
+    hand_min_th = stoi(labels["HAND_MIN_THRESHOLD"]);
+    hand_max_th = stoi(labels["HAND_MAX_THRESHOLD"]);
 }
 
 Image::~Image() = default;
@@ -28,4 +30,8 @@ void Image::update_hf(vector<Box> head, vector<Box> face) {
         wake_state = is_wake(keep_head, sleep_wake_params_2);
         keep_head.pop_front();
     }
+}
+
+void Image::update_hand(vector<Box> hand) {
+    hand_boxes = get_box_by_area(hand, hand_min_th, hand_max_th);
 }

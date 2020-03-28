@@ -24,7 +24,6 @@ Face_Angle ::Face_Angle()
     m_pconfiger = CConfiger::getOrCreateConfiger();
 	CFactoryDirectory* m_pfactories = CFactoryDirectory::getOrCreateInstance(true);
 	fa_m_pdetector = (CModelEngine*)m_pfactories->createProduct("CKeyPointsGenerator");
-	cudaMallocHost((void**)&pointsOnHost,219*sizeof(float));
 }
 
 Face_Angle::~Face_Angle()
@@ -84,7 +83,7 @@ void Face_Angle::get_points(cv::Mat &image,std::vector<std::vector<float>>& rect
         outs.push_back(out);
     }
     out_put = outs;
-
+    
     cudaFreeHost(cpuBuffer);
     cudaFree(gpuImage);
 }

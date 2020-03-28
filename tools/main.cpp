@@ -30,9 +30,8 @@ int main() {
 //    std::cout << "TEST TREngine" << std::endl;
 
     Collect collect;
-    collect.multithreadTest();
 //    collect.test();
-//    collect.run();
+    collect.run();
 //    collect.test2();
     return 0;
 }

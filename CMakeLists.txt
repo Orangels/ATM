@@ -9,8 +9,8 @@ find_package(Protobuf REQUIRED)
 
 set(cppCommonPath ${CMAKE_SOURCE_DIR}/src/cppCommon)
 
-include_directories(${OpenCV_INCLUDE_DIRS} include core src/box_tracking src/projectUtils
-        /usr/include /usr/local/ffmpeg/include  ${PROTOBUF_INCLUDE_DIR}  ${cppCommonPath}/include
+include_directories(${OpenCV_INCLUDE_DIRS} include core src/box_tracking
+        /usr/include  ${PROTOBUF_INCLUDE_DIR}  ${cppCommonPath}/include
         src/TREngine
         )
 if ("${CMAKE_SYSTEM}" MATCHES ".*tegra")
@@ -41,7 +41,7 @@ execute_process(COMMAND  protoc  --cpp_out=${CMAKE_SOURCE_DIR}/src/TREngine  -I=
 if(9 LESS ${CUDA_VERSION_MAJOR})
     execute_process(COMMAND rm ${CMAKE_SOURCE_DIR}/src/float32halfConvertor.cpp)
 endif()
-file(GLOB sources src/TREngine/*.cpp src/TREngine/*.cc onnx/*.cc src/projectUtils/*cpp)
+file(GLOB sources src/TREngine/*.cpp src/TREngine/*.cc onnx/*.cc )
 file(GLOB cudaSources src/TREngine/*.cu)
 
 
@@ -60,16 +60,10 @@ add_executable(ATM tools/main.cpp include/utils/image_deliver.h src/utils/image_
         src/box_tracking/box_tracking.h src/box_tracking/Hungarian/Hungarian.cpp
         src/box_tracking/Hungarian/Hungarian.h include/utils/track.h src/utils/track.cpp
         include/utils/vis.h src/utils/vis.cpp include/tasks/group_detect.h src/tasks/group_detect.cpp
+        include/tasks/entry_detect.h src/tasks/entry_detect.cpp include/tasks/hand_detect.h src/tasks/hand_detect.cpp
+        include/tasks/turnround_detect.h src/tasks/turnround_detect.cpp
         ${sources})
 
 target_link_libraries(ATM ${OpenCV_LIBS}
         ${PROTOBUF_LIBRARIES} inferLib nvcaffe_parser nvinfer nvinfer_plugin nvparsers  ${CUDA_CUBLAS_LIBRARIES} /usr/local/cuda/lib64/stubs/libcusolver.so ${CUDA_LIBRARIES} ${trtLibPath}/libcudnn.so ${cppCommonPath}/build/libCommon.so
-        /usr/local/ffmpeg/lib/libavcodec.so
-        /usr/local/ffmpeg/lib/libavdevice.so
-        /usr/local/ffmpeg/lib/libavfilter.so
-        /usr/local/ffmpeg/lib/libavformat.so
-        /usr/local/ffmpeg/lib/libavutil.so
-        /usr/local/ffmpeg/lib/libpostproc.so
-#        /usr/local/ffmpeg/lib/libswresample.so
-        /usr/local/ffmpeg/lib/libswscale.so
         )

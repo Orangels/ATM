@@ -20,12 +20,6 @@
 #include "face_angle.h"
 #include "face_reco.h"
 
-#include <mutex>
-#include <queue>
-#include <thread>
-#include <vector>
-#include "rtmpHandler.h"
-
 using namespace std;
 
 class Collect {
@@ -50,32 +44,6 @@ public:
 
     double num_images;
     int frames_skip, sleep_frames_skip, wake_frames_skip, head_track_mistimes;
-
-    //    ls add
-    void multithreadTest();
-
-    queue<cv::Mat> mQueue_front;
-    queue<cv::Mat> mQueue_top;
-
-    int mQueueArrLen = 2;
-    int mQueueLen = 5;
-    condition_variable con_front_not_full;
-    condition_variable con_front_not_empty;
-
-    condition_variable con_top_not_full;
-    condition_variable con_top_not_empty;
-
-    mutex myMutex_front;
-    mutex myMutex_top;
-
-    mutex rtmpMutex;
-    mutex rtmpMutex_2;
-    rtmpHandler ls_handler ;
-    rtmpHandler ls_handler_2;
-
-private:
-    void ProduceImage(int mode);
-    void ConsumeImage(int mode);
 };
 
 #endif //ATM_COLLECT_H

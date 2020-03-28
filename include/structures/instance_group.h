@@ -18,19 +18,17 @@ public:
     InstanceGroup();
     ~InstanceGroup();
 
+    void clear();
     void update(int frame_id, vector<int> track_id, vector<Box> head_boxes,
-            vector<vector<float>> face_angle, vector<int> delete_id);
+            vector<Box> face_boxes, vector<int> delete_id);
+    void add_hop_box(vector<Box> hat_boxes, vector<Box> glass_boxes, vector<Box> mask_boxes);
+    void get_face_box(vector<vector<float>> &face_boxes_input);
+    void update_face_angle(vector<vector<float>> face_angle);
+    void update_track(int frame_id, vector<int> delete_id);
     void check_state();
 
     unordered_map<int, Instance> instances;
-    vector<int> track_ids, delete_id;
-
-//    void update_hf(vector<Box> head, vector<Box> face);
-//
-//    int frame_id, sleep_wake_params_1, sleep_wake_params_2, pre_size_lift, pre_size_right, face_th, head_th;
-//    bool wake_state, invade, group_flag, hand_flag;
-//    vector<Box> oir_head_boxes, head_boxes, face_boxes, hand_boxes, hop_boxes;
-//    deque<int> keep_head;
+    vector<int> track_ids, track_ids_with_face;
 };
 
 #endif //ATM_INSTANCE_GROUP_H

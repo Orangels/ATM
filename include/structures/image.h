@@ -17,10 +17,12 @@ public:
     ~Image();
 
     void update_hf(vector<Box> head, vector<Box> face);
+    void update_hand(vector<Box> hand);
 
-    int frame_id, sleep_wake_params_1, sleep_wake_params_2, pre_size_lift, pre_size_right, face_th, head_th;
+    int frame_id, sleep_wake_params_1, sleep_wake_params_2, pre_size_lift, pre_size_right, face_th, head_th,
+        hand_min_th, hand_max_th;
     bool wake_state, invade, group_flag, hand_flag;
-    vector<Box> oir_head_boxes, head_boxes, face_boxes, hand_boxes, hop_boxes;
+    vector<Box> oir_head_boxes, head_boxes, face_boxes, hand_boxes;
     deque<int> keep_head;
 };
 

@@ -7,11 +7,12 @@
 
 #include <vector>
 #include <opencv2/opencv.hpp>
+#include "structures/instance_group.h"
+#include "structures/instance.h"
 #include "structures/structs.h"
 
 using namespace std;
 
-void vis(cv::Mat &img, int frame_id, vector<int> track_id, vector<Box> head_boxes,
-         vector<vector<float>> face_angle);
+void vis(cv::Mat &img, int frame_id, vector<int> track_id, InstanceGroup instance_group);
 
 #endif //ATM_VIS_H
