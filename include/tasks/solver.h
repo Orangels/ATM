@@ -31,4 +31,5 @@ public:
     bool group_flag, hand_flag, hop_flag, tround_flag, entry_flag;
 };
 
+
 #endif //ATM_SOLVER_H
