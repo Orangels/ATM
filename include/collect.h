@@ -111,6 +111,9 @@ public:
     gearman_return_t gearRet;
     gearman_client_st* gearClient;
 
+    cv::Mat rtmp_front_img;
+    cv::Mat rtmp_top_img;
+
     WATING_FLAG warningFlag = {false,false,false,false,false};
 private:
     void ProduceImage(int mode);

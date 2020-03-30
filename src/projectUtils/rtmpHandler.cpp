@@ -299,7 +299,7 @@ void rtmpHandler::pushRTMP(cv::Mat frame){
         ret = av_interleaved_write_frame(ic, &pack);
         if (ret == 0)
         {
-            cout << "#" << flush;
+//            cout << "#" << flush;
         }
 //    }
 }

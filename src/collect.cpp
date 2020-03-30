@@ -20,6 +20,7 @@ int64_t getCurrentTime()
     return tv.tv_sec * 1000 + tv.tv_usec / 1000;
 }
 
+bool updateWaringFlagHand(WATING_FLAG & warning, Solver function_solver);
 bool updateWaringFlag(WATING_FLAG & warning, Solver function_solver);
 
 Collect::Collect() {
@@ -35,6 +36,7 @@ Collect::Collect() {
     face_reco = new Face_Reco;
 
     //    ls add
+    mQueueLen = m_pconfiger->readValue<int>("mQueueLen");
     frames_skip = sleep_frames_skip;
     int fps = m_pconfiger->readValue<int>("fps");
     int out_w = m_pconfiger->readValue<int>("out_w");
@@ -66,60 +68,6 @@ Collect::Collect() {
 }
 
 Collect::~Collect() = default;
-
-void Collect::run() {
-    struct timeval tp1;
-    struct timeval tp2;
-    for (int i=0; i<num_images; i++){
-//        instance_group.check_state();
-        instance_group.clear();
-        image_class.frame_id = i;
-        gettimeofday(&tp1, NULL);
-        image_deliver.get_frame();
-
-        if (image_class.wake_state){
-            frames_skip = wake_frames_skip;
-        } else{
-            frames_skip = sleep_frames_skip;
-        }
-
-        if (i % frames_skip == 0){
-            hf_det.inference(image_deliver.front_img, ssd_detection);
-            image_class.update_hf(hf_det.head_boxes, hf_det.face_boxes);
-//            if(!image_class.keep_head.empty()){
-//                for (auto &keep : image_class.keep_head){
-//                    cout<<keep<<" ";
-//                }
-//                cout<<endl;
-//            }
-            if (image_class.wake_state) {
-                head_tracker->run(image_class.head_boxes);
-                hop_det.inference(image_deliver.front_img, ssd_detection);
-                hand_det.inference(image_deliver.top_img, ssd_detection);
-                image_class.update_hand(hand_det.hand_boxes);
-                instance_group.update(i, head_tracker->tracking_result, image_class.head_boxes,
-                                      image_class.face_boxes, head_tracker->delete_tracking_id);
-                instance_group.add_hop_box( hop_det.hat_boxes, hop_det.glass_boxes, hop_det.mask_boxes);
-                vector <vector<float>> boxes, face_a, face_b;
-                instance_group.get_face_box(boxes);
-                int64_t kp_start = getCurrentTime();
-                ssd_detection->get_angles(boxes, face_a);
-                int64_t kp_end = getCurrentTime();
-                cout << "kp time : -- " << kp_end-kp_start << endl;
-                instance_group.update_face_angle(face_a);
-
-                vis(image_deliver.front_img, i, head_tracker->tracking_result, instance_group);
-            } else{
-                head_tracker->run(image_class.head_boxes);
-                instance_group.update_track(i, head_tracker->delete_tracking_id);
-//                face_reco->get_feature(image_deliver.front_img, boxes, face_b);
-            }
-            function_solver.update(image_class, instance_group);
-        }
-        gettimeofday(&tp2, NULL);
-        cout<<i<<" :  "<< 1000 * (tp2.tv_sec-tp1.tv_sec) + (tp2.tv_usec-tp1.tv_usec)/1000<<endl;
-    }
-}
 
 void Collect::ConsumeWaringImage(int mode){
     cv::Mat img;
@@ -208,30 +156,30 @@ void Collect::ConsumeWaringImage(int mode){
 
             writer.EndObject();
         }
-//        else{
-//            enum WARING_TYPE waringType;
-//            waringType = HAND;
-//
-//            string timestamp = to_string(getCurrentTime());
-//            string img_full_path = img_root_path + timestamp + "_" + to_string(waringType) + ".jpg";
-//            cv::imwrite(img_full_path, img);
-//
-//            writer.StartObject();
-//
-//            writer.Key("params");
-//            writer.StartArray();
-//
-//            string img_path = timestamp + "_" + to_string(waringType) + ".jpg";
-//            writer.StartObject();
-//            writer.Key("path"); writer.String(img_path.c_str());
-//            writer.Key("mode");writer.Int(waringType);
-//            writer.EndObject();
-//
-//            writer.EndArray();
-//
-//            writer.EndObject();
-//
-//        }
+        else{
+            enum WARING_TYPE waringType;
+            waringType = HAND;
+
+            string timestamp = to_string(getCurrentTime());
+            string img_full_path = img_root_path + timestamp + "_" + to_string(waringType) + ".jpg";
+            cv::imwrite(img_full_path, img);
+
+            writer.StartObject();
+
+            writer.Key("params");
+            writer.StartArray();
+
+            string img_path = timestamp + "_" + to_string(waringType) + ".jpg";
+            writer.StartObject();
+            writer.Key("path"); writer.String(img_path.c_str());
+            writer.Key("mode");writer.Int(waringType);
+            writer.EndObject();
+
+            writer.EndArray();
+
+            writer.EndObject();
+
+        }
 
         const char* json_content = buf.GetString();
         string json_cs = json_content;
@@ -305,60 +253,9 @@ void Collect::ConsumeRTMPImage(int mode){
             con_v_wait->wait(guard);
         }
         int64_t start_read = getCurrentTime();
-        img = queue->front();
+        img = queue->front().clone();
         queue->pop();
         guard.unlock();
-
-
-//        if (num % 50 == 0 && mode == 0){
-//            rapidjson::StringBuffer buf;
-//            rapidjson::PrettyWriter<rapidjson::StringBuffer> writer(buf);
-//
-//            writer.StartObject();
-//
-//            writer.Key("params");
-//            writer.StartArray();
-//            for (int i = 0 ; i < 3; i ++){
-//                string timestamp = to_string(getCurrentTime());
-//                string img_full_path = img_root_path + timestamp + "_" + to_string(i) + ".jpg";
-//                cv::imwrite(img_full_path, img);
-//                string img_path = timestamp + "_" + to_string(i) + ".jpg";
-//                writer.StartObject();
-//                writer.Key("path"); writer.String(img_path.c_str());
-//                writer.Key("mode");writer.Int(i);
-//                writer.EndObject();
-//            }
-//            writer.EndArray();
-//
-//            writer.EndObject();
-//            const char* json_content = buf.GetString();
-//            string json_cs = json_content;
-//
-//            gearRet = gearman_client_do_background(gearClient,
-//                                                   "det_car",
-//                                                   NULL,
-//                                                   json_cs.c_str(),
-//                                                   (size_t)strlen(json_cs.c_str()),
-//                                                   NULL);
-//            if (gearRet == GEARMAN_SUCCESS)
-//            {
-//                fprintf(stdout, "Work success!\n");
-//            }
-//            else if (gearRet == GEARMAN_WORK_FAIL)
-//            {
-//                fprintf(stderr, "Work failed\n");
-//            }
-//            else if (gearRet == GEARMAN_TIMEOUT)
-//            {
-//                fprintf(stderr, "Work timeout\n");
-//            }
-//            else
-//            {
-//                fprintf(stderr, "%d,%s\n", gearman_client_errno(gearClient), gearman_client_error(gearClient));
-//            }
-//        }
-
-
         rtmpLock->lock();
         rtmpHandler->pushRTMP(img);
         rtmpLock->unlock();
@@ -419,7 +316,8 @@ void Collect::ProduceImage(int mode){
     int num = 0;
     int64_t start_all = getCurrentTime();
     int clo_num = num_images;
-    for (int i=0; i<clo_num; i++) {
+//    for (int i=0; i<clo_num; i++) {
+    for (int i=0; ; i++) {
         //        TODO 跳帧
         int64_t start = getCurrentTime();
         cam.read(frame);
@@ -431,22 +329,32 @@ void Collect::ProduceImage(int mode){
                 frames_skip = sleep_frames_skip;
             }
         }
-
         if (i % frames_skip != 0 ){
             if (mode == 0){
+
+                if (i == 0){
+                    rtmp_front_img = frame.clone();
+                }
+
                 rtmpMutex_front.lock();
-                ls_handler.pushRTMP(frame);
+                cv::Mat rtmp_frame = vis(frame, 0, head_tracker->tracking_result, image_class, instance_group, function_solver).clone();
+                ls_handler.pushRTMP(rtmp_front_img);
                 rtmpMutex_front.unlock();
             }
 
-//            if (i % 2 == 1 && mode == 1){
             if (mode == 1){
+
+                if (i == 0){
+                    rtmp_top_img = frame.clone();
+                }
+
                 rtmpMutex_top.lock();
-                ls_handler_2.pushRTMP(frame);
+                ls_handler_2.pushRTMP(rtmp_top_img);
                 rtmpMutex_top.unlock();
             }
             continue;
         }
+
 
         num ++;
         if (mode == 0){
@@ -464,6 +372,8 @@ void Collect::ProduceImage(int mode){
         int64_t end = getCurrentTime();
         cout << "write every time  : " << mode << "  " << i << " -- " << (end - start)  << endl;
         cout << "write process time  : " << mode << "  " << num << " -- " << (end - start)  << endl;
+
+
     }
     int64_t end_all = getCurrentTime();
     cout << "write img over -- " << (end_all - start_all) / clo_num / 1.0<< endl;
@@ -472,8 +382,11 @@ void Collect::ProduceImage(int mode){
 }
 
 void Collect::ConsumeImage(int mode){
-    cv::Mat img;
-    int num = 0;
+//    cv::Mat img;
+//    cv::Mat rtmp_frame;
+    int num = 1;
+    int front_num = 0;
+    float front_sum = 0.;
 
     mutex *lock;
     queue<cv::Mat> *queue;
@@ -507,7 +420,13 @@ void Collect::ConsumeImage(int mode){
             con_v_wait->wait(guard);
         }
         int64_t start_read = getCurrentTime();
-        img = queue->front();
+        cv::Mat img = queue->front();
+
+        queue->pop();
+        con_v_notification->notify_all();
+        guard.unlock();
+        num ++;
+
         if (mode == 0){
 
             instance_group.clear();
@@ -525,6 +444,7 @@ void Collect::ConsumeImage(int mode){
                                   });
 
             if (image_class.wake_state) {
+                front_num++;
                 std::thread track_points_thread([&](){
                     hf_thread.join();
                     head_tracker->run(image_class.head_boxes);
@@ -537,24 +457,11 @@ void Collect::ConsumeImage(int mode){
                     int64_t kp_end = getCurrentTime();
                     cout << "kp time : "<< num << " --  "  << kp_end-kp_start << endl;
                     instance_group.update_face_angle(face_a);
-//                    推流
-//                    cv::Mat rtmp_frame = lsUtils::vis(img, num, head_tracker->tracking_result,
-//                                                      image_class.head_boxes,face_a);
-
-                    cv::Mat rtmp_frame = lsUtils::vis_Box(img, image_class.head_boxes);
-                    mQueue_rtmp_front.push(rtmp_frame);
-                    con_rtmp_front.notify_all();
-                    //                    rtmpMutex_front.lock();
-//                    cout << "33333333333333" << endl;
-//                    ls_handler.pushRTMP(rtmp_frame);
-//                    cout << "44444444444444" << endl;
-//                    rtmpMutex_front.unlock();
                 });
 
                 std::thread hop_thread([&](){
                     int64_t start = getCurrentTime();
                     hop_det.inference(img, ssd_detection);
-//                    instance_group.add_hop_box( hop_det.hat_boxes, hop_det.glass_boxes, hop_det.mask_boxes);
                     int64_t end = getCurrentTime();
                     cout << "hop time  : " << num << " -- " << (end - start) << endl;
 //                    cout << "timestamp mode 1 -- " << getCurrentTime() << endl;
@@ -564,40 +471,34 @@ void Collect::ConsumeImage(int mode){
                 instance_group.add_hop_box( hop_det.hat_boxes, hop_det.glass_boxes, hop_det.mask_boxes);
                 function_solver.update(image_class, instance_group);
 //                post waring
-                bool waringTag = updateWaringFlag(warningFlag, function_solver);
-                if (waringTag){
-                    mQueue_waring_front.push(img);
-                    con_waring_front.notify_all();
-                }
-
 
                 int64_t end_front = getCurrentTime();
+                front_sum += (end_front - start_front);
                 cout << "front time  : "<< mode << " " << num << " -- " << (end_front - start_front) << endl;
+//                cout << "front time  avg: "<< mode << " " << front_num << " -- " << front_sum / num << endl;
+                cout << "front time  avg: "<< mode << " " << front_num << " -- " << front_sum / front_num << endl;
 
             } else {
                 std::thread tracker_thread([&](){
                     hf_thread.join();
                     head_tracker->run(image_class.head_boxes);
                     instance_group.update_track(num, head_tracker->delete_tracking_id);
-//                推流
-                    cv::Mat rtmp_frame = lsUtils::vis_Box(img, image_class.head_boxes);
-                    mQueue_rtmp_front.push(rtmp_frame);
-                    con_rtmp_front.notify_all();
-//                    rtmpMutex_front.lock();
-//                    cout << "33333333333333" << endl;
-//                    ls_handler.pushRTMP(rtmp_frame);
-//                    cout << "44444444444444" << endl;
-//                    rtmpMutex_front.unlock();
                 });
                 tracker_thread.join();
                 function_solver.update(image_class, instance_group);
-                //                post waring
-                bool waringTag = updateWaringFlag(warningFlag, function_solver);
-                if (waringTag){
-                    mQueue_waring_front.push(img);
-                    con_waring_front.notify_all();
-                }
             }
+
+            cv::Mat rtmp_frame = vis(img, num, head_tracker->tracking_result, image_class, instance_group, function_solver).clone();
+            rtmp_front_img = rtmp_frame.clone();
+            //                post waring
+            bool waringTag = updateWaringFlag(warningFlag, function_solver);
+            if (waringTag){
+                mQueue_waring_front.push(rtmp_frame);
+                con_waring_front.notify_all();
+            }
+//            ls_handler.pushRTMP(rtmp_frame);
+            mQueue_rtmp_front.push(rtmp_frame);
+            con_rtmp_front.notify_all();
 
         } else if (mode == 1){
             if (image_class.wake_state) {
@@ -607,8 +508,8 @@ void Collect::ConsumeImage(int mode){
                                             int64_t start = getCurrentTime();
                                             hand_det.inference(img, ssd_detection);
                                             image_class.update_hand(hand_det.hand_boxes);
-//                                            int64_t end = getCurrentTime();
                                             cv::Mat rtmp_frame = lsUtils::vis_Box(img, hand_det.hand_boxes);
+                                            rtmp_top_img = rtmp_frame.clone();
                                             mQueue_rtmp_top.push(rtmp_frame);
                                             con_rtmp_top.notify_all();
                                             int64_t end = getCurrentTime();
@@ -616,21 +517,29 @@ void Collect::ConsumeImage(int mode){
 //                                            cout << "timestamp -- " << getCurrentTime() << endl;
                                         });
                 hand_thread.join();
+
+                bool waringTag = updateWaringFlagHand(warningFlag, function_solver);
+                if (waringTag){
+                    cout << "hand warning !!" << endl;
+//                    mQueue_waring_top.push(img);
+//                    con_waring_top.notify_all();
+                }
+
                 int64_t end_hand = getCurrentTime();
                 cout << "hand time total: " << num << " -- " << (end_hand - start_hand) << endl;
             } else{
-                rtmpMutex_top.lock();
-                ls_handler_2.pushRTMP(img);
-                rtmpMutex_top.unlock();
+                rtmp_top_img = img.clone();
+                mQueue_rtmp_top.push(img);
+                con_rtmp_top.notify_all();
             }
         }
         int64_t end_read = getCurrentTime();
 //        cout << "read timestamp -- " << end_read << endl;
         cout << "read time cost : " << mode << " " << num << " -- " << (end_read - start_read) << endl;
-        queue->pop();
-        con_v_notification->notify_all();
-        guard.unlock();
-        num ++;
+//        queue->pop();
+//        con_v_notification->notify_all();
+//        guard.unlock();
+//        num ++;
 //        cout << "timestamp -- " << getCurrentTime() << endl;
     }
 
@@ -647,6 +556,7 @@ void Collect::multithreadTest(){
     thread thread_RTMP_top(&Collect::ConsumeRTMPImage, this, 1);
 
     thread thread_waring_front(&Collect::ConsumeWaringImage, this, 0);
+    thread thread_waring_top(&Collect::ConsumeWaringImage, this, 1);
 
     thread_write_image_front.join();
     thread_write_image_top.join();
@@ -658,6 +568,16 @@ void Collect::multithreadTest(){
     thread_RTMP_top.join();
 
     thread_waring_front.join();
+    thread_waring_top.join();
+}
+
+bool updateWaringFlagHand(WATING_FLAG & warning, Solver function_solver){
+    bool result = false;
+    if (warning.hand_flag != function_solver.hand_flag && function_solver.hand_flag){
+        result = true;
+    }
+    warning.hand_flag = function_solver.hand_flag;
+    return result;
 }
 
 bool updateWaringFlag(WATING_FLAG & warning, Solver function_solver){

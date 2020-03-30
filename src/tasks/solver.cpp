@@ -13,6 +13,7 @@ Solver::~Solver() = default;
 
 void Solver::update(Image image_class, InstanceGroup instance_group){
     group_detect.update(image_class.oir_head_boxes);
+    group_heads = group_detect.group_heads;
     group_flag = group_detect.group_flag;
     hand_detect.update(image_class.hand_boxes);
     hand_flag = hand_detect.hand_flag;
