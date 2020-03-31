@@ -115,6 +115,10 @@ public:
     cv::Mat rtmp_top_img;
 
     WATING_FLAG warningFlag = {false,false,false,false,false};
+
+    void hf_thread();
+    void hop_thread();
+    void hand_thread();
 private:
     void ProduceImage(int mode);
     void ConsumeImage(int mode);

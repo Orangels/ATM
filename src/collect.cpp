@@ -12,6 +12,7 @@
 #include "rapidjson/writer.h"
 #include "rapidjson/stringbuffer.h"
 #include "rapidjson/prettywriter.h"
+#include <unistd.h>
 
 int64_t getCurrentTime()
 {
@@ -603,4 +604,67 @@ bool updateWaringFlag(WATING_FLAG & warning, Solver function_solver){
     return result;
 
 
+}
+
+void Collect::hf_thread(){
+    int clo_num = 300;
+    for (int i=0; i<clo_num; i++){
+        int64_t start_hf = getCurrentTime();
+        hf_det.inference(image_deliver.front_img, ssd_detection);
+        int64_t start_hop = getCurrentTime();
+        cout << "hf -- " << start_hop - start_hf <<  endl;
+    }
+}
+
+void Collect::hop_thread(){
+    int clo_num = 300;
+    for (int i=0; i<clo_num; i++){
+        int64_t start_hf = getCurrentTime();
+        hop_det.inference(image_deliver.front_img, ssd_detection);
+        int64_t start_hop = getCurrentTime();
+        cout << "hop -- " << start_hop - start_hf <<  endl;
+    }
+}
+
+void Collect::hand_thread(){
+    int clo_num = 300;
+    for (int i=0; i<clo_num; i++){
+        int64_t start_hf = getCurrentTime();
+        hand_det.inference(image_deliver.top_img, ssd_detection);
+        int64_t start_hop = getCurrentTime();
+        cout << "hand -- " << start_hop - start_hf <<  endl;
+    }
+}
+
+void Collect::test(){
+    image_deliver.get_frame();
+    int64_t start_all = getCurrentTime();
+    int clo_num = 300;
+    for (int i=0; i<clo_num; i++){
+        int64_t start_hf = getCurrentTime();
+        hf_det.inference(image_deliver.front_img, ssd_detection);
+        int64_t start_hop = getCurrentTime();
+        hop_det.inference(image_deliver.front_img, ssd_detection);
+        int64_t start_hand = getCurrentTime();
+        hand_det.inference(image_deliver.top_img, ssd_detection);
+        int64_t end_hand = getCurrentTime();
+
+        cout << "hf -- " << start_hop - start_hf << " hop -- " << start_hand-start_hop << " hand -- " << end_hand-start_hand << endl;
+     }
+    int64_t end_all = getCurrentTime();
+    cout << "total avg -- " << (end_all-start_all) * 1.0 / clo_num << endl;
+}
+
+void Collect::test2(){
+    image_deliver.get_frame();
+    int64_t start_all = getCurrentTime();
+    thread th_hf(&Collect::hf_thread, this);
+    thread th_hop(&Collect::hop_thread, this);
+    thread th_hand(&Collect::hand_thread, this);
+
+    th_hf.join();
+    th_hop.join();
+    th_hand.join();
+    int64_t end_all = getCurrentTime();
+    cout << "total avg -- " << (end_all-start_all) * 1.0 / 300 << endl;
 }
