@@ -16,11 +16,14 @@ include_directories(${OpenCV_INCLUDE_DIRS} include core src/box_tracking
         src/projectUtils
         /usr/local/include
         )
+
+add_subdirectory(${cppCommonPath}/src/Common)
+
 if ("${CMAKE_SYSTEM}" MATCHES ".*tegra")
     set(cppComBranch tx2nano)
     set(trtLibPath /usr/lib/aarch64-linux-gnu)
     set(CUDA_CUBLAS_LIBRARIES /usr/local/cuda/targets/aarch64-linux/lib/stubs/libcublas.so)
-#    execute_process(COMMAND  ln -s /srv/models ${CMAKE_SOURCE_DIR}/../../../models)
+    #    execute_process(COMMAND  ln -s /srv/models ${CMAKE_SOURCE_DIR}/../../../models)
 else()
     set(cppComBranch ubuntu)
     set(trtLibPath /usr/lib/x86_64-linux-gnu)
@@ -69,7 +72,9 @@ add_executable(ATM tools/main.cpp include/utils/image_deliver.h src/utils/image_
         ${sources})
 
 target_link_libraries(ATM ${OpenCV_LIBS}
-        ${PROTOBUF_LIBRARIES} inferLib nvcaffe_parser nvinfer nvinfer_plugin nvparsers  ${CUDA_CUBLAS_LIBRARIES} /usr/local/cuda/lib64/stubs/libcusolver.so ${CUDA_LIBRARIES} ${trtLibPath}/libcudnn.so ${cppCommonPath}/build/libCommon.so
+        ${PROTOBUF_LIBRARIES} inferLib nvcaffe_parser nvinfer nvinfer_plugin nvparsers  ${CUDA_CUBLAS_LIBRARIES} /usr/local/cuda/lib64/stubs/libcusolver.so ${CUDA_LIBRARIES} ${trtLibPath}/libcudnn.so
+        #${cppCommonPath}/build/libCommon.so
+        Common
         /usr/local/ffmpeg/lib/libavcodec.so
         /usr/local/ffmpeg/lib/libavdevice.so
         /usr/local/ffmpeg/lib/libavfilter.so
