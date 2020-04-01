@@ -35,7 +35,7 @@ SSD_Detection ::SSD_Detection()
 	hop_m_pdetector =(CModelEngine*)m_pfactories->createProduct(hop_detectionType);
 	fa_m_pdetector = (CModelEngine*)m_pfactories->createProduct("CKeyPointsGenerator");
 	cudaMalloc((void**)&mhf_gpuImage, 1920*1080*3);
-	fr_m_pdetector = (CModelEngine*)m_pfactories->createProduct("CFaceAttributeCalculator");
+	fr_m_pdetector = (CModelEngine*)m_pfactories->createProduct("CFaceRecognization");
 
 }
 
@@ -131,9 +131,61 @@ void SSD_Detection::get_angles(std::vector<std::vector<float>>& rects, std::vect
     }
 }
 
-void SSD_Detection::get_features(std::vector<std::vector<float>>& rects, std::vector<float>& features)
+void SSD_Detection::get_features(std::vector<std::vector<float>>& rects, std::vector<std::vector<float>>& features)
 {
+    if(rects.size()==0) return;
+    auto viceStream = fa_m_pdetector->getViceCudaStream();
+    int num_faces = rects.size();
+    int num_iter = ceil(num_faces / 4.0);
+    for(int i =0;i<num_iter;i++)
+    {
+        // 4face as a batch ,if num of face less than 4, batch = num
+        int current_size = num_iter*4 >num_faces? num_faces%4: 4;
+        std::vector<CFace> fs(current_size);
+        for (int j = 0; j < fs.size(); ++j)
+        {
+            CFace& f = fs[j];
+            f.m_pproducer = &mhf_image;
+            f.confidence = 0.99;
+            f.trackId = i;
+            float *pface = new float[4];
+            memcpy(pface, &rects[j][0], rects[j].size() *sizeof(float));
+            memcpy(f.xyMinMax, pface , 4 * sizeof(float));
+//                std::cout << f.xyMinMax[0] << ", " << f.xyMinMax[1] << ", " << f.xyMinMax[2] << ", " << f.xyMinMax[3] << ", " <<std::endl;
+//                std::cout << *pface << ", " << *(pface+1) << ", " << *(pface+2) << ", " << *(pface+3) << ", "<<std::endl;
+        }
+        std::vector<CDataShared*> srcp(4, &fs[0]);
+        std::vector<CFaceKeyPoints> facePoints(fa_m_pdetector->getBatchSize());
+        for (int i = 0; i < fs.size(); ++i) srcp[i] = &fs[i];
 
+        fa_m_pdetector->preProcessV(srcp);
+
+        cudaStreamSynchronize(fa_m_pdetector->getViceCudaStream());
+
+
+        fa_m_pdetector->inference(4);
+
+        exitIfCudaError(cudaStreamSynchronize(viceStream));
+        fa_m_pdetector->postProcessV(srcp, facePoints.data());
+        exitIfCudaError(cudaStreamSynchronize(viceStream));
+
+        std::vector<CFaceInfor> facesInfor(fr_m_pdetector->getBatchSize());//Batchsize ==1
+        // batch ==1
+        for(int i =0 ;i<current_size;i++){
+            std::vector<CDataShared*> nextBatch(1);     //Batchsize ==1
+            nextBatch.resize(1);
+            nextBatch[0] = &facePoints[i];
+            fr_m_pdetector->preProcessV(nextBatch);
+            fr_m_pdetector->inference(1);            //Batchsize ==4
+            fr_m_pdetector->postProcessV(nextBatch, facesInfor.data());
+            std::vector<float> fea;
+            fr_m_pdetector->get_feature(fea);
+//            for (int k =0;k<512;k++){
+//                std::cout<< k<<": "<<fea[k]<<" ";
+//            }
+            features.push_back(fea);
+        }
+    }
 }
 
 void SSD_Detection::detect_hand(cv::Mat &image, std::vector<float>& hand_boxs)

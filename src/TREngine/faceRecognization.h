@@ -1,8 +1,9 @@
-#pragma once	
+#pragma once
 #include <vector>
 #include <unordered_map>
 #include "modelEngine.h"
 #include "protoIO.h"
+#include "affineInterface.h"
 
 class CImage;
 class CFaceFeatures;
@@ -14,7 +15,7 @@ public:
 	~CFaceRecognization();
 	virtual void preProcessV(std::vector<CDataShared *>& vsrc) override;
 	virtual void postProcessV(std::vector<CDataShared *>& vmodelInputes, CDataShared* voutput) override;
-    virtual void get_feature(std::vector<std::vector<float>>& fea);
+	virtual void get_feature(std::vector<float>& fea);
 
 private:
 	std::vector<float> m_yawPitchRol;
@@ -26,5 +27,8 @@ private:
 	bool m_system, m_developer;
 	CImagesFeatures* m_namesFeatures;
 	std::vector<std::unordered_map<int, std::tuple<size_t, float, int>> > m_videoFrameFaceConfidece;
-	std::vector<std::vector<float>> batch_face_feature;
+	float* m_pointsBuffer;
+	Affine_ affine_instance;
+	void affine(int vbatchSize, float* vp68points, CImage* vimage, float* vdst);
+	std::vector<float> batch_face_feature;
 };

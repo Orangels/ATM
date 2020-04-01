@@ -18,7 +18,9 @@ public:
     ~HopDetect();
 
     void update(InstanceGroup instance_group);
-    bool hop_flag;
+    bool hop_flag, flag, flag_2;
+    int hop_frame, hop_wake, hop_sleep;
+    deque<int> keep_hop;
 };
 
 #endif //ATM_HOP_DETECT_H

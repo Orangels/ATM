@@ -13,10 +13,10 @@ GroupDetect::GroupDetect() {
     group_area_2 = stoi(labels["GROUP_AREA_2"]);
     group_min_head_area = stoi(labels["GROUP_MIN_HEAD_AREA"]);
     group_max_head_area = stoi(labels["GROUP_MAX_HEAD_AREA"]);
-    group_frame_last = stoi(labels["GROUP_FRAME_LAST"]);
-    group_pass_frame = stoi(labels["GROUP_PASS_FRAME"]);
-    group_noise_frame = stoi(labels["GROUP_NOISE_FRAME"]);
+    group_frame = stoi(labels["GROUP_FRAME"]);
+    group_wake = stoi(labels["GROUP_WAKE"]);
     group_flag = false;
+    group_sleep = 20;
 }
 
 GroupDetect::~GroupDetect() = default;
@@ -26,5 +26,19 @@ void GroupDetect::update(vector<Box> boxes){
     if (!head_boxes.empty()){
         group_heads = group_point(head_boxes, group_max_num, group_area_1, group_area_2);
     }
-    group_flag = !group_heads.empty();
+    keep_group.push_back(!group_heads.empty());
+    if (keep_group.size() == group_frame){
+        flag = is_wake(keep_group, group_wake);
+        keep_group.pop_front();
+    }
+    if (flag){
+        group_sleep = 20;
+        group_flag = flag;
+    }else{
+        if (group_sleep > 0){
+            group_sleep--;
+        }else{
+            group_flag = flag;
+        }
+    }
 }

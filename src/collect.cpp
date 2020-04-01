@@ -33,8 +33,6 @@ Collect::Collect() {
     head_track_mistimes = stoi(labels["HEAD_TRACK_MISTIMES"]);
     head_tracker = new Track(head_track_mistimes, stoi(labels["IMAGE_W"]), stoi(labels["IMAGE_H"]));
     ssd_detection = new SSD_Detection;
-    face_angle = new Face_Angle;
-    face_reco = new Face_Reco;
 
     //    ls add
     mQueueLen = m_pconfiger->readValue<int>("mQueueLen");
@@ -69,6 +67,80 @@ Collect::Collect() {
 }
 
 Collect::~Collect() = default;
+
+void Collect::run() {
+    struct timeval tp1;
+    struct timeval tp2;
+    struct timeval t_im, tra_1, hf_1, hf_2, hop_1, hand_1, hand_2, ang_1, ang_2, reco, vis_1, vis_2;
+    for (int i=1000; i<num_images+1000; i++){
+//        instance_group.check_state();
+        instance_group.clear();
+        image_class.frame_id = i;
+        gettimeofday(&tp1, NULL);
+        image_deliver.get_frame();
+        gettimeofday(&t_im, NULL);
+
+        if (image_class.wake_state){
+            frames_skip = wake_frames_skip;
+        } else{
+            frames_skip = sleep_frames_skip;
+        }
+
+        if (i % frames_skip == 0){
+            gettimeofday(&hf_1, NULL);
+            hf_det.inference(image_deliver.front_img, ssd_detection);
+            gettimeofday(&hf_2, NULL);
+            image_class.update_hf(hf_det.head_boxes, hf_det.face_boxes);
+//            if(!image_class.keep_head.empty()){
+//                for (auto &keep : image_class.keep_head){
+//                    cout<<keep<<" ";
+//                }
+//                cout<<endl;
+//            }
+            if (image_class.wake_state) {
+                gettimeofday(&tra_1, NULL);
+                head_tracker->run(image_class.head_boxes);
+                gettimeofday(&hop_1, NULL);
+                hop_det.inference(image_deliver.front_img, ssd_detection);
+                gettimeofday(&hand_1, NULL);
+                hand_det.inference(image_deliver.top_img, ssd_detection);
+                gettimeofday(&hand_2, NULL);
+                image_class.update_hand(hand_det.hand_boxes);
+                instance_group.update(i, head_tracker->tracking_result, image_class.head_boxes,
+                                      image_class.face_boxes, head_tracker->delete_tracking_id);
+                instance_group.add_hop_box( hop_det.hat_boxes, hop_det.glass_boxes, hop_det.mask_boxes);
+                vector<vector<float>> face_boxes, reco_boxes, face_angles, face_fea;
+                instance_group.get_face_box(face_boxes);
+                gettimeofday(&ang_1, NULL);
+                ssd_detection->get_angles(face_boxes, face_angles);
+                gettimeofday(&ang_2, NULL);
+                instance_group.update_face_angle(face_angles, reco_boxes);
+                ssd_detection->get_features(reco_boxes, face_fea);
+                vector<int> face_ids;
+                face_lib.get_identity(face_fea, face_ids);
+                instance_group.update_face_id(face_ids);
+                gettimeofday(&reco, NULL);
+                cout<<" hf:  "<< 1000 * (hf_2.tv_sec-hf_1.tv_sec) + (hf_2.tv_usec-hf_1.tv_usec)/1000<<endl;
+                cout<<" tracker:  "<< 1000 * (hop_1.tv_sec-tra_1.tv_sec) + (hop_1.tv_usec-tra_1.tv_usec)/1000<<endl;
+                cout<<" hop:  "<< 1000 * (hand_1.tv_sec-hop_1.tv_sec) + (hand_1.tv_usec-hop_1.tv_usec)/1000<<endl;
+                cout<<" hand:  "<< 1000 * (hand_2.tv_sec-hand_1.tv_sec) + (hand_2.tv_usec-hand_1.tv_usec)/1000<<endl;
+                cout<<" angle:  "<< 1000 * (ang_2.tv_sec-ang_1.tv_sec) + (ang_2.tv_usec-ang_1.tv_usec)/1000<<endl;
+                cout<<" reco:  "<< 1000 * (reco.tv_sec-ang_2.tv_sec) + (reco.tv_usec-ang_2.tv_usec)/1000<<endl;
+            } else{
+                head_tracker->run(image_class.head_boxes);
+                instance_group.update_track(i, head_tracker->delete_tracking_id);
+            }
+            function_solver.update(image_class, instance_group);
+            gettimeofday(&vis_1, NULL);
+            vis(image_deliver.front_img, i, head_tracker->tracking_result, image_class, instance_group, function_solver);
+            gettimeofday(&vis_2, NULL);
+            cout<<" image:  "<< 1000 * (t_im.tv_sec-tp1.tv_sec) + (t_im.tv_usec-tp1.tv_usec)/1000<<endl;
+            cout<<" vis:  "<< 1000 * (vis_2.tv_sec-vis_1.tv_sec) + (vis_2.tv_usec-vis_1.tv_usec)/1000<<endl;
+        }
+        gettimeofday(&tp2, NULL);
+        cout<<i<<" :  "<< 1000 * (tp2.tv_sec-tp1.tv_sec) + (tp2.tv_usec-tp1.tv_usec)/1000<<endl;
+    }
+}
 
 void Collect::ConsumeWaringImage(int mode){
     cv::Mat img;
@@ -318,6 +390,7 @@ void Collect::ProduceImage(int mode){
     int64_t start_all = getCurrentTime();
     int clo_num = num_images;
 //    for (int i=0; i<clo_num; i++) {
+
     for (int i=0; ; i++) {
         //        TODO 跳帧
         int64_t start = getCurrentTime();
@@ -338,7 +411,6 @@ void Collect::ProduceImage(int mode){
                 }
 
                 rtmpMutex_front.lock();
-                cv::Mat rtmp_frame = vis(frame, 0, head_tracker->tracking_result, image_class, instance_group, function_solver).clone();
                 ls_handler.pushRTMP(rtmp_front_img);
                 rtmpMutex_front.unlock();
             }
@@ -451,13 +523,18 @@ void Collect::ConsumeImage(int mode){
                     head_tracker->run(image_class.head_boxes);
                     instance_group.update(num, head_tracker->tracking_result, image_class.head_boxes,
                                           image_class.face_boxes, head_tracker->delete_tracking_id);
-                    vector <vector<float>> boxes, face_a, face_b;
-                    instance_group.get_face_box(boxes);
+//                    vector <vector<float>> boxes, face_a, face_b;
+                    vector<vector<float>> face_boxes, reco_boxes, face_angles, face_fea;
+                    instance_group.get_face_box(face_boxes);
                     int64_t kp_start = getCurrentTime();
-                    ssd_detection->get_angles(boxes, face_a);
+                    ssd_detection->get_angles(face_boxes, face_angles);
                     int64_t kp_end = getCurrentTime();
                     cout << "kp time : "<< num << " --  "  << kp_end-kp_start << endl;
-                    instance_group.update_face_angle(face_a);
+                    instance_group.update_face_angle(face_angles, reco_boxes);
+                    ssd_detection->get_features(reco_boxes, face_fea);
+                    vector<int> face_ids;
+                    face_lib.get_identity(face_fea, face_ids);
+                    instance_group.update_face_id(face_ids);
                 });
 
                 std::thread hop_thread([&](){
@@ -474,10 +551,14 @@ void Collect::ConsumeImage(int mode){
 //                post waring
 
                 int64_t end_front = getCurrentTime();
-                front_sum += (end_front - start_front);
+                if (front_num > 30){
+                    front_sum += (end_front - start_front);
+                    cout << "front time  avg: "<< mode << " " << front_num << " -- " << front_sum / (front_num-30) << endl;
+                }
+
                 cout << "front time  : "<< mode << " " << num << " -- " << (end_front - start_front) << endl;
 //                cout << "front time  avg: "<< mode << " " << front_num << " -- " << front_sum / num << endl;
-                cout << "front time  avg: "<< mode << " " << front_num << " -- " << front_sum / front_num << endl;
+//                cout << "front time  avg: "<< mode << " " << front_num << " -- " << front_sum / (front_num-10) << endl;
 
             } else {
                 std::thread tracker_thread([&](){
@@ -488,9 +569,10 @@ void Collect::ConsumeImage(int mode){
                 tracker_thread.join();
                 function_solver.update(image_class, instance_group);
             }
-
-            cv::Mat rtmp_frame = vis(img, num, head_tracker->tracking_result, image_class, instance_group, function_solver).clone();
+            cout << "rtmp push start " << endl;
+            cv::Mat rtmp_frame = get_vis(img, num, head_tracker->tracking_result, image_class, instance_group, function_solver).clone();
             rtmp_front_img = rtmp_frame.clone();
+            cout << "rtmp push over " << endl;
             //                post waring
             bool waringTag = updateWaringFlag(warningFlag, function_solver);
             if (waringTag){
@@ -509,7 +591,8 @@ void Collect::ConsumeImage(int mode){
                                             int64_t start = getCurrentTime();
                                             hand_det.inference(img, ssd_detection);
                                             image_class.update_hand(hand_det.hand_boxes);
-                                            cv::Mat rtmp_frame = lsUtils::vis_Box(img, hand_det.hand_boxes);
+//                                            cv::Mat rtmp_frame = lsUtils::vis_Box(img, hand_det.hand_boxes);
+                                            cv::Mat rtmp_frame = lsUtils::vis_Box(img.clone(), image_class.hand_boxes);
                                             rtmp_top_img = rtmp_frame.clone();
                                             mQueue_rtmp_top.push(rtmp_frame);
                                             con_rtmp_top.notify_all();
@@ -519,18 +602,20 @@ void Collect::ConsumeImage(int mode){
                                         });
                 hand_thread.join();
 
-                bool waringTag = updateWaringFlagHand(warningFlag, function_solver);
-                if (waringTag){
-                    cout << "hand warning !!" << endl;
+//                bool waringTag = updateWaringFlagHand(warningFlag, function_solver);
+//                if (waringTag){
+//                    cout << "hand warning !!" << endl;
 //                    mQueue_waring_top.push(img);
 //                    con_waring_top.notify_all();
-                }
+//                }
 
                 int64_t end_hand = getCurrentTime();
                 cout << "hand time total: " << num << " -- " << (end_hand - start_hand) << endl;
             } else{
                 rtmp_top_img = img.clone();
-                mQueue_rtmp_top.push(img);
+                cv::Mat rtmp_frame = lsUtils::vis_hand_det_box(rtmp_top_img);
+//                mQueue_rtmp_top.push(img);
+                mQueue_rtmp_top.push(rtmp_frame);
                 con_rtmp_top.notify_all();
             }
         }
@@ -606,8 +691,8 @@ bool updateWaringFlag(WATING_FLAG & warning, Solver function_solver){
 
 }
 
-void Collect::hf_thread(){
-    int clo_num = 300;
+void Collect::hf_thread(int clo_num){
+
     for (int i=0; i<clo_num; i++){
         int64_t start_hf = getCurrentTime();
         hf_det.inference(image_deliver.front_img, ssd_detection);
@@ -616,8 +701,8 @@ void Collect::hf_thread(){
     }
 }
 
-void Collect::hop_thread(){
-    int clo_num = 300;
+void Collect::hop_thread(int clo_num){
+
     for (int i=0; i<clo_num; i++){
         int64_t start_hf = getCurrentTime();
         hop_det.inference(image_deliver.front_img, ssd_detection);
@@ -626,8 +711,8 @@ void Collect::hop_thread(){
     }
 }
 
-void Collect::hand_thread(){
-    int clo_num = 300;
+void Collect::hand_thread(int clo_num){
+
     for (int i=0; i<clo_num; i++){
         int64_t start_hf = getCurrentTime();
         hand_det.inference(image_deliver.top_img, ssd_detection);
@@ -639,7 +724,7 @@ void Collect::hand_thread(){
 void Collect::test(){
     image_deliver.get_frame();
     int64_t start_all = getCurrentTime();
-    int clo_num = 300;
+    int clo_num = 2000;
     for (int i=0; i<clo_num; i++){
         int64_t start_hf = getCurrentTime();
         hf_det.inference(image_deliver.front_img, ssd_detection);
@@ -650,21 +735,22 @@ void Collect::test(){
         int64_t end_hand = getCurrentTime();
 
         cout << "hf -- " << start_hop - start_hf << " hop -- " << start_hand-start_hop << " hand -- " << end_hand-start_hand << endl;
-     }
+    }
     int64_t end_all = getCurrentTime();
     cout << "total avg -- " << (end_all-start_all) * 1.0 / clo_num << endl;
 }
 
 void Collect::test2(){
     image_deliver.get_frame();
+    int clo_num = 1000;
     int64_t start_all = getCurrentTime();
-    thread th_hf(&Collect::hf_thread, this);
-    thread th_hop(&Collect::hop_thread, this);
-    thread th_hand(&Collect::hand_thread, this);
+    thread th_hf(&Collect::hf_thread, this, clo_num);
+    thread th_hop(&Collect::hop_thread, this, clo_num);
+    thread th_hand(&Collect::hand_thread, this, clo_num);
 
     th_hf.join();
     th_hop.join();
     th_hand.join();
     int64_t end_all = getCurrentTime();
-    cout << "total avg -- " << (end_all-start_all) * 1.0 / 300 << endl;
+    cout << "total avg -- " << (end_all-start_all) * 1.0 / clo_num << endl;
 }

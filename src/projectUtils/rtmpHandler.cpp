@@ -120,9 +120,9 @@ rtmpHandler::rtmpHandler(string inUrl_parm, string outUrl_parm, int width, int h
 //    vc->thread_count = 4;
 //    vc->thread_count = 18;
 
-//    vc->bit_rate = 30 * 1024 * 8;//压缩后每秒视频的bit位大小 50kB
+    vc->bit_rate = 30 * 1024 * 8;//压缩后每秒视频的bit位大小 50kB
 //    vc->bit_rate = 70 * 1024 * 8;//压缩后每秒视频的bit位大小 50kB
-    vc->bit_rate = 50 * 1024 * 8;//压缩后每秒视频的bit位大小 50kB
+//    vc->bit_rate = 50 * 1024 * 8;//压缩后每秒视频的bit位大小 50kB
 //    vc->rc_max_rate = 50 * 1024 * 8;
 //    vc->rc_min_rate = 50 * 1024 * 8;
     vc->width = inWidth;

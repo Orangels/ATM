@@ -19,4 +19,6 @@ void Solver::update(Image image_class, InstanceGroup instance_group){
     hand_flag = hand_detect.hand_flag;
     hop_detect.update(instance_group);
     hop_flag = hop_detect.hop_flag;
+    turnround_detect.update(instance_group);
+    tround_flag = turnround_detect.turnround_flag;
 }

@@ -31,4 +31,6 @@ vector<vector<Box>> group_point(vector<Box> all_heads, int max, int group_area_1
 
 vector<Box> invade(Box box, vector<Box> boxes, int area_th);
 
+bool is_reco_box(Angle angle);
+
 #endif //ATM_MISC_H

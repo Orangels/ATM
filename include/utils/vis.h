@@ -15,6 +15,7 @@
 
 using namespace std;
 
-cv::Mat vis(cv::Mat &img, int frame_id, vector<int> track_id, Image image_class, InstanceGroup instance_group, Solver function_solver);
+void vis(cv::Mat &img, int frame_id, vector<int> track_id, Image image_class, InstanceGroup instance_group, Solver function_solver);
+cv::Mat get_vis(cv::Mat &img, int frame_id, vector<int> track_id, Image image_class, InstanceGroup instance_group, Solver function_solver);
 
 #endif //ATM_VIS_H

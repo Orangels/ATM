@@ -28,15 +28,21 @@ namespace lsUtils{
         return img;
     }
 
-    cv::Mat vis_Box(cv::Mat img, vector<Box> head_boxes){
-        for (int i = 0; i < head_boxes.size(); i++) {
+    cv::Mat vis_Box(cv::Mat img, vector<Box> hand_boxes){
+        for (auto & box : hand_boxes){
             cv::Point p1, p2;
-            p1.x = head_boxes[i].x1;
-            p1.y = head_boxes[i].y1;
-            p2.x = head_boxes[i].x2;
-            p2.y = head_boxes[i].y2;
-            cv::rectangle(img, p1, p2, cv::Scalar(0, 0, 255), 3, 4, 0);
+            p1.x = box.x1;
+            p1.y = box.y1;
+            p2.x = box.x2;
+            p2.y = box.y2;
+            cv::rectangle(img, p1, p2, cv::Scalar(0, 255, 255), 2, 1, 0);
         }
+        cv::rectangle(img, cv::Point(150, 260), cv::Point(280, 359), cv::Scalar(0, 255, 0), 2, 1, 0);
+        return img;
+    }
+
+    cv::Mat vis_hand_det_box(cv::Mat img){
+        cv::rectangle(img, cv::Point(150, 260), cv::Point(280, 359), cv::Scalar(0, 255, 0), 2, 1, 0);
         return img;
     }
 }

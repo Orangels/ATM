@@ -14,6 +14,7 @@ InstanceGroup::~InstanceGroup() = default;
 void InstanceGroup::clear(){
     track_ids.clear();
     track_ids_with_face.clear();
+    track_ids_with_reco.clear();
     track_delete_id.clear();
 }
 
@@ -27,7 +28,7 @@ void InstanceGroup::update(int frame_id, vector<int> track_id, vector<Box> head_
         track_ids.push_back(track_id[i]);
         Box face_box;
         face_box = get_inside(head_boxes[i], face_boxes);
-        if (instances.find(track_id[i]) == instances.end()){
+        if (instances.find(track_id[i]) != instances.end()){
             instances[track_id[i]].update(head_boxes[i], face_box);
         } else{
             Instance instance(track_id[i], head_boxes[i], face_box);
@@ -61,13 +62,29 @@ void InstanceGroup::get_face_box(vector<vector<float>> &face_boxes_input){
     }
 }
 
-void InstanceGroup::update_face_angle(vector<vector<float>> face_angle){
+void InstanceGroup::update_face_angle(vector<vector<float>> face_angle, vector<vector<float>> &face_reco_input){
+    vector<float> result;
     for (int i = 0; i < track_ids_with_face.size(); i++){
         Angle angle;
         angle.Y = face_angle[i][0];
         angle.P = face_angle[i][1];
         angle.R = face_angle[i][2];
         instances[track_ids_with_face[i]].pos_angle = angle;
+        if(is_reco_box(angle) and instances[track_ids_with_face[i]].face_id == -1){
+            result.clear();
+            result.push_back(instances[track_ids_with_face[i]].face_box[0].x1);
+            result.push_back(instances[track_ids_with_face[i]].face_box[0].y1);
+            result.push_back(instances[track_ids_with_face[i]].face_box[0].x2);
+            result.push_back(instances[track_ids_with_face[i]].face_box[0].y2);
+            face_reco_input.push_back(result);
+            track_ids_with_reco.push_back(track_ids_with_face[i]);
+        }
+    }
+}
+
+void InstanceGroup::update_face_id(vector<int> face_ids){
+    for (int i = 0; i < track_ids_with_reco.size(); i++){
+        instances[track_ids_with_reco[i]].face_id = face_ids[i];
     }
 }
 

@@ -13,12 +13,11 @@
 #include "engine/hand_det.h"
 #include "structures/image.h"
 #include "structures/instance_group.h"
+#include "structures/face_library.h"
 #include "utils/track.h"
 #include "tasks/solver.h"
 #include "Common.h"
 #include "detection.h"
-#include "face_angle.h"
-#include "face_reco.h"
 
 #include <mutex>
 #include <queue>
@@ -62,10 +61,9 @@ public:
     HandDet hand_det;
     Image image_class;
     InstanceGroup instance_group;
+    FaceLibrary face_lib;
     Solver function_solver;
     SSD_Detection* ssd_detection;
-    Face_Angle* face_angle;
-    Face_Reco* face_reco;
 
     double num_images;
     int frames_skip, sleep_frames_skip, wake_frames_skip, head_track_mistimes;
@@ -116,9 +114,9 @@ public:
 
     WATING_FLAG warningFlag = {false,false,false,false,false};
 
-    void hf_thread();
-    void hop_thread();
-    void hand_thread();
+    void hf_thread(int clo_num);
+    void hop_thread(int clo_num);
+    void hand_thread(int clo_num);
 private:
     void ProduceImage(int mode);
     void ConsumeImage(int mode);

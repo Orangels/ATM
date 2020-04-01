@@ -48,7 +48,7 @@ vector<Box> select_meet_head(vector<Box> head_boxes,
 
 bool is_wake(deque<int> keep_head, int sleep_wake_params_2){
     int num = 0;
-    assert(keep_head.size() == 6);
+//    assert(keep_head.size() == 6);
     for (auto &keep : keep_head) {
         if (keep > 0){
             num++;
@@ -87,17 +87,18 @@ Box get_inside(Box box, vector<Box> boxes){
     int x1, y1, x2, y2, s_max;
     x1 = y1 = x2 = y2 = s_max = 0;
     for (auto &b : boxes) {
-
         x1 = max(box.x1, b.x1);
         y1 = max(box.y1, b.y1);
         x2 = min(box.x2, b.x2);
         y2 = min(box.y2, b.y2);
         if ((x2 > x1) and (y2 > y1) and ((x2 - x1) * (y2 - y1) > s_max)){
             s_max = (x2 - x1) * (y2 - y1);
-            output.x1 = x1;
-            output.y1 = y1;
-            output.x2 = x2;
-            output.y2 = y2;
+            if (s_max > 100){
+                output.x1 = x1;
+                output.y1 = y1;
+                output.x2 = x2;
+                output.y2 = y2;
+            }
         }
     }
     return output;
@@ -119,7 +120,7 @@ vector<vector<Box>> group_point(vector<Box> all_heads, int max, int group_area_1
                 output.push_back(box);
             }
         }
-        if (output.size() > max){
+        if (output.size() >= max){
             outputs.push_back(output);
         }
     }
@@ -148,4 +149,8 @@ vector<Box> invade(Box box, vector<Box> boxes, int area_th){
         outputs.clear();
     }
     return outputs;
+}
+
+bool is_reco_box(Angle angle){
+    return angle.Y > -20 and angle.Y < 20 and angle.P > -20 and angle.P < 20 and angle.R > -20 and angle.R < 20;
 }

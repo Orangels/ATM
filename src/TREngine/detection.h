@@ -22,7 +22,7 @@ public:
     ~SSD_Detection();
     void detect_hf(cv::Mat &image, std::vector<float>& hf_boxs);
     void get_angles(std::vector<std::vector<float>>& rects, std::vector<std::vector<float>>& angles);
-    void get_features(std::vector<std::vector<float>>& rects, std::vector<float>& features);
+    void get_features(std::vector<std::vector<float>>& rects, std::vector<std::vector<float>>& features);
     void detect_hand(cv::Mat &image, std::vector<float>& hand_boxs);
     void detect_hop(cv::Mat &image, std::vector<float>& hop_boxs);
 private:

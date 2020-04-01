@@ -20,7 +20,7 @@ if ("${CMAKE_SYSTEM}" MATCHES ".*tegra")
     set(cppComBranch tx2nano)
     set(trtLibPath /usr/lib/aarch64-linux-gnu)
     set(CUDA_CUBLAS_LIBRARIES /usr/local/cuda/targets/aarch64-linux/lib/stubs/libcublas.so)
-    #    execute_process(COMMAND  ln -s /srv/models ${CMAKE_SOURCE_DIR}/../../../models)
+#    execute_process(COMMAND  ln -s /srv/models ${CMAKE_SOURCE_DIR}/../../../models)
 else()
     set(cppComBranch ubuntu)
     set(trtLibPath /usr/lib/x86_64-linux-gnu)
@@ -64,7 +64,8 @@ add_executable(ATM tools/main.cpp include/utils/image_deliver.h src/utils/image_
         src/box_tracking/Hungarian/Hungarian.h include/utils/track.h src/utils/track.cpp
         include/utils/vis.h src/utils/vis.cpp include/tasks/group_detect.h src/tasks/group_detect.cpp
         include/tasks/entry_detect.h src/tasks/entry_detect.cpp include/tasks/hand_detect.h src/tasks/hand_detect.cpp
-        include/tasks/turnround_detect.h src/tasks/turnround_detect.cpp
+        include/tasks/turnround_detect.h src/tasks/turnround_detect.cpp include/structures/face_library.h
+        src/structures/face_library.cpp
         ${sources})
 
 target_link_libraries(ATM ${OpenCV_LIBS}

@@ -11,6 +11,7 @@ Instance::Instance() = default;
 Instance::Instance(int _track_id, Box head, Box face) {
     track_id = _track_id;
     head_box = head;
+    face_id = -1;
     if (face.x2 > 0){
         face_box.push_back(face);
     }

@@ -21,8 +21,9 @@ public:
 
     vector<Box> hand_boxes;
     Box pre_area;
-    int time_threshold, area_threshold;
-    bool hand_flag;
+    int area_threshold, hand_frame, hand_wake, hand_sleep;
+    bool hand_flag, flag, flag_2;
+    deque<int> keep_hand;
 };
 
 #endif //ATM_HAND_DETECT_H

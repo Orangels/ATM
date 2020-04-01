@@ -5,6 +5,8 @@
 #ifndef ATM_STRUCTS_H
 #define ATM_STRUCTS_H
 
+#include <vector>
+
 using namespace std;
 
 typedef struct Box {
@@ -19,5 +21,10 @@ typedef struct Angle {
     float P;
     float R;
 } Angle;
+
+typedef struct InstenceFace {
+    long time;
+    vector<float> face_fea;
+} InstenceFace;
 
 #endif //ATM_STRUCTS_H
