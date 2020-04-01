@@ -10,6 +10,8 @@
 #include "structures/structs.h"
 #include "structures/image.h"
 #include "structures/instance_group.h"
+#include "config.h"
+
 
 using namespace std;
 
@@ -20,7 +22,7 @@ public:
 
     void update(InstanceGroup instance_group);
     bool turnround_flag, lock;
-    int t, turnround_sleep;
+    int t, turnround_sleep, turnround_frame, turnround_angle;
     struct timeval start_time, now_time;
     deque<int> keep_turnround;
 };

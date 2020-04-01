@@ -6,6 +6,9 @@
 #include "utils/misc.h"
 
 TurnroundDetect::TurnroundDetect() {
+    Cconfig labels = Cconfig("../cfg/process.ini");
+    turnround_frame = stoi(labels["TROUND_FRAME"]);
+    turnround_angle = stoi(labels["TROUND_ANGLE"]);
     turnround_flag = lock = false;
     turnround_sleep = 20;
     t = 0;
@@ -33,24 +36,23 @@ void TurnroundDetect::update(InstanceGroup instance_group){
     }
     if (angle_y != 0){
         keep_turnround.push_back(angle_y);
-        if (keep_turnround.size() == 15){
+        if (keep_turnround.size() == turnround_frame){
             for (auto keep : keep_turnround){
                 s = s + keep;
             }
             keep_turnround.pop_front();
         }
-        s = s / 15;
-        if (s < -40 or s > 40){
+        s = s / turnround_frame;
+        if (s < -turnround_angle or s > turnround_angle){
             if (!lock) {
                 if (t == 0){gettimeofday(&start_time, NULL);}
                 t++;
                 lock = true;
             }
-        } else if (s > -40 and s < 40){
+        } else if (s > -turnround_angle and s < turnround_angle){
             lock = false;
         }
     }
-
     if (t == 3){
         turnround_sleep = 20;
         turnround_flag = true;
