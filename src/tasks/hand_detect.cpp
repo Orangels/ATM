@@ -16,7 +16,7 @@ HandDetect::HandDetect() {
     hand_frame = stoi(labels["HAND_FRAME"]);
     hand_wake = stoi(labels["HAND_WAKE"]);
     hand_flag = false;
-    hand_sleep = 20;
+    hand_sleep = 0;
 }
 
 HandDetect::~HandDetect() = default;

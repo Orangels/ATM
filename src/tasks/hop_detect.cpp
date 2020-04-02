@@ -10,8 +10,8 @@ HopDetect::HopDetect() {
     Cconfig labels = Cconfig("../cfg/process.ini");
     hop_frame = stoi(labels["HOP_FRAME"]);
     hop_wake = stoi(labels["HOP_WAKE"]);
-    hop_flag = false;
-    hop_sleep = 20;
+    hop_flag = flag = false;
+    hop_sleep = 0;
 }
 
 HopDetect::~HopDetect() = default;

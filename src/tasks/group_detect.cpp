@@ -15,8 +15,8 @@ GroupDetect::GroupDetect() {
     group_max_head_area = stoi(labels["GROUP_MAX_HEAD_AREA"]);
     group_frame = stoi(labels["GROUP_FRAME"]);
     group_wake = stoi(labels["GROUP_WAKE"]);
-    group_flag = false;
-    group_sleep = 20;
+    group_flag = flag = false;
+    group_sleep = 0;
 }
 
 GroupDetect::~GroupDetect() = default;

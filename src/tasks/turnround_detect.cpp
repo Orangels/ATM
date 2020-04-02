@@ -5,12 +5,15 @@
 #include "tasks/turnround_detect.h"
 #include "utils/misc.h"
 
+#include <iostream>
+#include <fstream>
+
 TurnroundDetect::TurnroundDetect() {
     Cconfig labels = Cconfig("../cfg/process.ini");
     turnround_frame = stoi(labels["TROUND_FRAME"]);
     turnround_angle = stoi(labels["TROUND_ANGLE"]);
     turnround_flag = lock = false;
-    turnround_sleep = 20;
+    turnround_sleep = 0;
     t = 0;
     gettimeofday(&start_time, NULL);
 }
@@ -18,6 +21,10 @@ TurnroundDetect::TurnroundDetect() {
 TurnroundDetect::~TurnroundDetect() = default;
 
 void TurnroundDetect::update(InstanceGroup instance_group){
+    std::cout <<"turn around t -- " << t << std::endl;
+    ofstream fout("0.txt", ios::app);
+    fout << ("t is " + std::to_string(t)) ;
+    fout.close();
     gettimeofday(&now_time, NULL);
     if (now_time.tv_sec - start_time.tv_sec > 120){
         t=0;
