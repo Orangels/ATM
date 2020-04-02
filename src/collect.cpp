@@ -505,47 +505,39 @@ void Collect::ConsumeImage(int mode){
             instance_group.clear();
 
             int64_t start_front = getCurrentTime();
-            std::thread hf_thread([&]()
-                                  {
-                                      int64_t start = getCurrentTime();
-                                      hf_det.inference(img, ssd_detection);
-                                      int64_t end = getCurrentTime();
-                                      image_class.update_hf(hf_det.head_boxes, hf_det.face_boxes);
+            hf_det.inference(img, ssd_detection);
+            int64_t start_end = getCurrentTime();
+            image_class.update_hf(hf_det.head_boxes, hf_det.face_boxes);
 ////                                      int64_t end = getCurrentTime();
-                                      cout << "hf time  : " << num << " -- " << (end - start) << endl;
+            cout << "hf time  : " << num << " -- " << (start_end - start_front) << endl;
 //                                      cout << "timestamp mode 0 -- " << getCurrentTime() << endl;
-                                  });
 
             if (image_class.wake_state) {
                 front_num++;
-                std::thread track_points_thread([&](){
-                    hf_thread.join();
-                    head_tracker->run(image_class.head_boxes);
-                    instance_group.update(num, head_tracker->tracking_result, image_class.head_boxes,
-                                          image_class.face_boxes, head_tracker->delete_tracking_id);
-//                    vector <vector<float>> boxes, face_a, face_b;
-                    vector<vector<float>> face_boxes, reco_boxes, face_angles, face_fea;
-                    instance_group.get_face_box(face_boxes);
-                    int64_t kp_start = getCurrentTime();
-                    ssd_detection->get_angles(face_boxes, face_angles);
-                    int64_t kp_end = getCurrentTime();
-                    cout << "kp time : "<< num << " --  "  << kp_end-kp_start << endl;
-                    instance_group.update_face_angle(face_angles, reco_boxes);
-                    ssd_detection->get_features(reco_boxes, face_fea);
-                    vector<int> face_ids;
-                    face_lib.get_identity(face_fea, face_ids);
-                    instance_group.update_face_id(face_ids);
-                });
+//                hop
+                int64_t start_hop = getCurrentTime();
+                hop_det.inference(img, ssd_detection);
+                int64_t end_hop = getCurrentTime();
+                cout << "hop time  : " << num << " -- " << (end_hop - start_hop) << endl;
 
-                std::thread hop_thread([&](){
-                    int64_t start = getCurrentTime();
-                    hop_det.inference(img, ssd_detection);
-                    int64_t end = getCurrentTime();
-                    cout << "hop time  : " << num << " -- " << (end - start) << endl;
-//                    cout << "timestamp mode 1 -- " << getCurrentTime() << endl;
-                });
-                track_points_thread.join();
-                hop_thread.join();
+
+//                tracker kp
+                head_tracker->run(image_class.head_boxes);
+                instance_group.update(num, head_tracker->tracking_result, image_class.head_boxes,
+                                      image_class.face_boxes, head_tracker->delete_tracking_id);
+
+                vector<vector<float>> face_boxes, reco_boxes, face_angles, face_fea;
+                instance_group.get_face_box(face_boxes);
+                int64_t kp_start = getCurrentTime();
+                ssd_detection->get_angles(face_boxes, face_angles);
+                int64_t kp_end = getCurrentTime();
+                cout << "kp time : "<< num << " --  "  << kp_end-kp_start << endl;
+                instance_group.update_face_angle(face_angles, reco_boxes);
+                ssd_detection->get_features(reco_boxes, face_fea);
+                vector<int> face_ids;
+                face_lib.get_identity(face_fea, face_ids);
+                instance_group.update_face_id(face_ids);
+
                 instance_group.add_hop_box( hop_det.hat_boxes, hop_det.glass_boxes, hop_det.mask_boxes);
                 function_solver.update(image_class, instance_group);
 //                post waring
@@ -561,12 +553,8 @@ void Collect::ConsumeImage(int mode){
 //                cout << "front time  avg: "<< mode << " " << front_num << " -- " << front_sum / (front_num-10) << endl;
 
             } else {
-                std::thread tracker_thread([&](){
-                    hf_thread.join();
-                    head_tracker->run(image_class.head_boxes);
-                    instance_group.update_track(num, head_tracker->delete_tracking_id);
-                });
-                tracker_thread.join();
+                head_tracker->run(image_class.head_boxes);
+                instance_group.update_track(num, head_tracker->delete_tracking_id);
                 function_solver.update(image_class, instance_group);
             }
             cout << "rtmp push start " << endl;
@@ -585,22 +573,17 @@ void Collect::ConsumeImage(int mode){
 
         } else if (mode == 1){
             if (image_class.wake_state) {
-                int64_t start_hand = getCurrentTime();
-                std::thread hand_thread([&]()
-                                        {
-                                            int64_t start = getCurrentTime();
-                                            hand_det.inference(img, ssd_detection);
-                                            image_class.update_hand(hand_det.hand_boxes);
+                
+                int64_t start = getCurrentTime();
+                hand_det.inference(img, ssd_detection);
+                image_class.update_hand(hand_det.hand_boxes);
 //                                            cv::Mat rtmp_frame = lsUtils::vis_Box(img, hand_det.hand_boxes);
-                                            cv::Mat rtmp_frame = lsUtils::vis_Box(img.clone(), image_class.hand_boxes);
-                                            rtmp_top_img = rtmp_frame.clone();
-                                            mQueue_rtmp_top.push(rtmp_frame);
-                                            con_rtmp_top.notify_all();
-                                            int64_t end = getCurrentTime();
-                                            cout << "hand time : " << num << " -- " << (end - start) << endl;
-//                                            cout << "timestamp -- " << getCurrentTime() << endl;
-                                        });
-                hand_thread.join();
+                cv::Mat rtmp_frame = lsUtils::vis_Box(img.clone(), image_class.hand_boxes);
+                rtmp_top_img = rtmp_frame.clone();
+                mQueue_rtmp_top.push(rtmp_frame);
+                con_rtmp_top.notify_all();
+                int64_t end = getCurrentTime();
+                cout << "hand time : " << num << " -- " << (end - start) << endl;
 
 //                bool waringTag = updateWaringFlagHand(warningFlag, function_solver);
 //                if (waringTag){
@@ -608,9 +591,6 @@ void Collect::ConsumeImage(int mode){
 //                    mQueue_waring_top.push(img);
 //                    con_waring_top.notify_all();
 //                }
-
-                int64_t end_hand = getCurrentTime();
-                cout << "hand time total: " << num << " -- " << (end_hand - start_hand) << endl;
             } else{
                 rtmp_top_img = img.clone();
                 cv::Mat rtmp_frame = lsUtils::vis_hand_det_box(rtmp_top_img);
