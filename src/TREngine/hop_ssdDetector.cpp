@@ -52,9 +52,34 @@ void hop_CSSDEngine::postProcessV(std::vector<CDataShared*>& vmodelInputes, CDat
 
 	postDetections(vmodelInputes.size(), flagUpload? hwidthHeight.data():NULL , (float*)modelIObuffers.back(),  para, m_dimsOut.h(),  getCudaStream());
 	cudaMemcpyAsync(resultBufferHost, modelIObuffers.back(), modelOutputBytes*vmodelInputes.size(), cudaMemcpyDeviceToHost, getCudaStream());
-
 	cudaStreamSynchronize(getCudaStream());
 	CImageDetections* pout = (CImageDetections*)voutput;
 	for (int i = 0; i < vmodelInputes.size(); ++i)
-		getheadFacePair(resultBufferHost + i*modelOutputBytes / sizeof(float), pout++);
+		getheadFacePair_(resultBufferHost + i*modelOutputBytes / sizeof(float), pout++);
+}
+void hop_CSSDEngine::getheadFacePair_(float* viopDetections, CImageDetections* vodetections)
+{
+	int headId = 1, faceId = 2;
+	int numDetection = *viopDetections + 0.2;
+	float* ptemp = viopDetections;
+	for (int i = 0; i < numDetection; ++i)
+	{
+		ptemp += 3;
+		*ptemp = int(*ptemp); ptemp++;
+		*ptemp = int(*ptemp); ptemp++;
+		*ptemp = int(*ptemp); ptemp++;
+		*ptemp = int(*ptemp); ptemp++;
+	}
+    auto& dst = vodetections->detections;
+	vodetections->faceCount = 1;
+	vodetections->detectionCount = numDetection;
+	for(int i =0 ;i <numDetection;i++)
+	{
+	    dst.push_back(*(viopDetections + i*7 +1));
+	    dst.push_back(*(viopDetections + i*7 +2));
+	    dst.push_back(*(viopDetections + i*7 +3));
+	    dst.push_back(*(viopDetections + i*7 +4));
+	    dst.push_back(*(viopDetections + i*7 +5));
+	    dst.push_back(*(viopDetections + i*7 +6));
+	}
 }

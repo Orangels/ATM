@@ -86,6 +86,10 @@ Box get_inside(Box box, vector<Box> boxes){
     Box output;
     int x1, y1, x2, y2, s_max;
     x1 = y1 = x2 = y2 = s_max = 0;
+    output.x1 = x1;
+    output.y1 = y1;
+    output.x2 = x2;
+    output.y2 = y2;
     for (auto &b : boxes) {
         x1 = max(box.x1, b.x1);
         y1 = max(box.y1, b.y1);

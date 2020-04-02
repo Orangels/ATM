@@ -250,7 +250,7 @@ void SSD_Detection::detect_hop(cv::Mat &image, std::vector<float>& hop_boxs)
 	hop_m_pdetector->postProcessV(srcd, dstd.data());
     dstd[0].m_pproducer = (CImage*)srcd[0];
 //    std::cout << "hop result" << std::endl,
-//    __outputDetections(dstd[j]);
+//    __outputDetections(dstd[0]);
     hop_boxs = dstd[0].detections;
 
     cudaFreeHost(cpuBuffer);
