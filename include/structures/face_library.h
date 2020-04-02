@@ -22,7 +22,7 @@ public:
     float match_th, login_th, ignore_th;
 
     void time_filter(long time);
-    void get_identity(vector<vector<float>> feas, vector<int> &face_ids);
+    void get_identity(vector<vector<float>> feas, vector<int> &face_ids, vector<int> &frequencies);
 
     unordered_map<int, InstenceFace> face_list;
 };

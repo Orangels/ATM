@@ -50,7 +50,8 @@ void InstanceGroup::add_hop_box(vector<Box> hat_boxes, vector<Box> glass_boxes, 
 void InstanceGroup::get_face_box(vector<vector<float>> &face_boxes_input){
     vector<float> result;
     for(auto &track_id : track_ids){
-        if(!instances[track_id].face_box.empty()){
+        if(!instances[track_id].face_box.empty() and instances[track_id].hat_box.empty()
+        and instances[track_id].mask_box.empty()){
             result.clear();
             result.push_back(instances[track_id].face_box[0].x1);
             result.push_back(instances[track_id].face_box[0].y1);
@@ -82,9 +83,11 @@ void InstanceGroup::update_face_angle(vector<vector<float>> face_angle, vector<v
     }
 }
 
-void InstanceGroup::update_face_id(vector<int> face_ids){
+void InstanceGroup::update_face_id(vector<int> face_ids, vector<int> &frequencies){
     for (int i = 0; i < track_ids_with_reco.size(); i++){
         instances[track_ids_with_reco[i]].face_id = face_ids[i];
+        instances[track_ids_with_reco[i]].frequency = frequencies[i];
+        cout<<"+++++++++++++++++++++++++++++++++++++++++id: "<<face_ids[i]<<" fre: "<<frequencies[i]<<endl;
     }
 }
 

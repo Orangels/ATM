@@ -116,9 +116,9 @@ void Collect::run() {
                 gettimeofday(&ang_2, NULL);
                 instance_group.update_face_angle(face_angles, reco_boxes);
                 ssd_detection->get_features(reco_boxes, face_fea);
-                vector<int> face_ids;
-                face_lib.get_identity(face_fea, face_ids);
-                instance_group.update_face_id(face_ids);
+                ssd_detection->get_features(reco_boxes, face_fea);
+                vector<int> face_ids, frequencies;
+                face_lib.get_identity(face_fea, face_ids, frequencies);
                 gettimeofday(&reco, NULL);
                 cout<<" hf:  "<< 1000 * (hf_2.tv_sec-hf_1.tv_sec) + (hf_2.tv_usec-hf_1.tv_usec)/1000<<endl;
                 cout<<" tracker:  "<< 1000 * (hop_1.tv_sec-tra_1.tv_sec) + (hop_1.tv_usec-tra_1.tv_usec)/1000<<endl;
@@ -534,9 +534,9 @@ void Collect::ConsumeImage(int mode){
                 cout << "kp time : "<< num << " --  "  << kp_end-kp_start << endl;
                 instance_group.update_face_angle(face_angles, reco_boxes);
                 ssd_detection->get_features(reco_boxes, face_fea);
-                vector<int> face_ids;
-                face_lib.get_identity(face_fea, face_ids);
-                instance_group.update_face_id(face_ids);
+                vector<int> face_ids, frequencies;
+                face_lib.get_identity(face_fea, face_ids, frequencies);
+                instance_group.update_face_id(face_ids, frequencies);
 
                 instance_group.add_hop_box( hop_det.hat_boxes, hop_det.glass_boxes, hop_det.mask_boxes);
                 function_solver.update(image_class, instance_group);

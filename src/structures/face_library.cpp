@@ -29,10 +29,10 @@ void FaceLibrary::time_filter(long time){
     }
 }
 
-void FaceLibrary::get_identity(vector<vector<float>> feas, vector<int> &face_ids){
+void FaceLibrary::get_identity(vector<vector<float>> feas, vector<int> &face_ids, vector<int> &frequencies){
     struct timeval now_time;
     gettimeofday(&now_time, NULL);
-//    time_filter(now_time.tv_sec);
+    time_filter(now_time.tv_sec);
 
     int id, num_fea = feas.size();
     float dis, dis_max;
@@ -49,16 +49,21 @@ void FaceLibrary::get_identity(vector<vector<float>> feas, vector<int> &face_ids
                 }
                 if (dis_max >= match_th){
                     face_list[id].time = now_time.tv_sec;
+                    face_list[id].frequency++;
                     face_ids.push_back(id);
+                    frequencies.push_back(face_list[id].frequency);
                 } else if(dis_max < login_th){
                     InstenceFace insface;
                     insface.time = now_time.tv_sec;
                     insface.face_fea = fea;
+                    insface.frequency = 1;
                     face_list[ind] = insface;
                     face_ids.push_back(ind);
+                    frequencies.push_back(1);
                     ind++;
                 } else{
                     face_ids.push_back(-1);
+                    frequencies.push_back(0);
                 }
             }
         } else{
@@ -66,8 +71,10 @@ void FaceLibrary::get_identity(vector<vector<float>> feas, vector<int> &face_ids
                 InstenceFace insface;
                 insface.time = now_time.tv_sec;
                 insface.face_fea = fea;
+                insface.frequency = 1;
                 face_list[ind] = insface;
                 face_ids.push_back(ind);
+                frequencies.push_back(1);
                 ind++;
             }
         }

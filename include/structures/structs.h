@@ -25,6 +25,7 @@ typedef struct Angle {
 typedef struct InstenceFace {
     long time;
     vector<float> face_fea;
+    int frequency;
 } InstenceFace;
 
 #endif //ATM_STRUCTS_H

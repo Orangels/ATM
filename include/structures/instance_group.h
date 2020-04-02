@@ -24,7 +24,7 @@ public:
     void add_hop_box(vector<Box> hat_boxes, vector<Box> glass_boxes, vector<Box> mask_boxes);
     void get_face_box(vector<vector<float>> &face_boxes_input);
     void update_face_angle(vector<vector<float>> face_angle, vector<vector<float>> &face_reco_input);
-    void update_face_id(vector<int> face_ids);
+    void update_face_id(vector<int> face_ids, vector<int> &frequencies);
     void update_track(int frame_id, vector<int> delete_id);
     void check_state();
 

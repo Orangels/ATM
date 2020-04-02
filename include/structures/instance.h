@@ -20,7 +20,7 @@ public:
     void update(Box head, Box face);
     void update_hop(Box hat, Box glass, Box mask);
 
-    int track_id, face_id;
+    int track_id, face_id, frequency;
     Box head_box;
     vector<Box> face_box, hat_box, glass_box, mask_box;
     Angle pos_angle;
