@@ -87,7 +87,6 @@ void InstanceGroup::update_face_id(vector<int> face_ids, vector<int> &frequencie
     for (int i = 0; i < track_ids_with_reco.size(); i++){
         instances[track_ids_with_reco[i]].face_id = face_ids[i];
         instances[track_ids_with_reco[i]].frequency = frequencies[i];
-        cout<<"+++++++++++++++++++++++++++++++++++++++++id: "<<face_ids[i]<<" fre: "<<frequencies[i]<<endl;
     }
 }
 

@@ -1,8 +1,8 @@
 cmake_minimum_required(VERSION 3.10)
 project(ATM)
 
-#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -O0 -ggdb -Wall -fPIC -ggdb -O0") #-O0 -ggdb
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -O3 -Wall -fPIC") #-O0 -ggdb
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -O0 -ggdb -Wall -fPIC") #-O0 -ggdb
+#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -O3 -Wall -fPIC") #-O0 -ggdb
 
 find_package(CUDA)
 find_package(OpenCV)
