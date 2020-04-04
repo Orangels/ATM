@@ -235,7 +235,8 @@ cv::Mat get_vis(Mat &img, int frame_id, vector<int> track_id, Image image_class,
         p1.y = box.y1;
         p2.x = box.x2;
         p2.y = box.y2;
-        rectangle(result_img, p1, p2, Scalar(128, 64, 0), 2, 1, 0);
+//        std::cout<< "entry: " << box.x1 << " " << box.y1 << " " << box.x2 << " " << box.y2 << endl;
+        rectangle(result_img, p1, p2, Scalar(21, 76, 192), 2, 1, 0);
     }
 
     return result_img;

@@ -20,9 +20,11 @@ void EntryDetect::update(InstanceGroup instance_group){
     Box box;
     for (auto id : instance_group.track_ids){
         if (instance_group.instances[id].frequency >= entry_times){
-            box = instance_group.instances[id].face_box[0];
-            entry_face.push_back(box);
             entry_flag = true;
+            if (instance_group.instances[id].face_box.size() > 0){
+                box = instance_group.instances[id].face_box[0];
+                entry_face.push_back(box);
+            }
         }
     }
 }
