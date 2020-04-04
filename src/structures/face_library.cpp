@@ -6,6 +6,9 @@
 #include "config.h"
 #include <math.h>
 
+#include <iostream>
+#include <fstream>
+
 FaceLibrary::FaceLibrary() {
     Cconfig labels = Cconfig("../cfg/process.ini");
     duration = stoi(labels["FACELIB_DURATION"]) * 60;
@@ -37,11 +40,16 @@ void FaceLibrary::get_identity(vector<vector<float>> feas, vector<int> &face_ids
     int id, num_fea = feas.size();
     float dis, dis_max;
 
+    ofstream fout("0.txt", ios::app|ios::out);
+//    fout << " % " << std::endl;
     if (num_fea > 0){
         if (face_list.size() > 0){
+            fout << " ******* " << std::endl;
             for (auto fea : feas){
                 for(auto ins : face_list){
                     dis = cosine(fea, ins.second.face_fea);
+                    fout << "id " + std::to_string(ins.first) + " " + std::to_string(dis) + "  " << std::endl;
+                    std::cout << "id " + std::to_string(ins.first) + " " + std::to_string(dis) + "  " << std::endl;
                     if (dis > dis_max){
                         id = ins.first;
                         dis_max = dis;
@@ -79,6 +87,7 @@ void FaceLibrary::get_identity(vector<vector<float>> feas, vector<int> &face_ids
             }
         }
     }
+    fout.close();
 }
 
 float dotProduct(const vector<float>& v1, const vector<float>& v2)

@@ -19,6 +19,8 @@ public:
 
     void update(InstanceGroup instance_group);
     bool entry_flag;
+    int entry_times;
+    vector<Box> entry_face;
 };
 
 #endif //ATM_ENTRY_DETECT_H

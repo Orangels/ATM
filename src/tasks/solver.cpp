@@ -21,4 +21,7 @@ void Solver::update(Image image_class, InstanceGroup instance_group){
     hop_flag = hop_detect.hop_flag;
     turnround_detect.update(instance_group);
     tround_flag = turnround_detect.turnround_flag;
+    entry_detect.update(instance_group);
+    entry_face = entry_detect.entry_face;
+    entry_flag = entry_detect.entry_flag;
 }

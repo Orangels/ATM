@@ -4,12 +4,25 @@
 
 #include "tasks/entry_detect.h"
 #include "utils/misc.h"
+#include "config.h"
 
 EntryDetect::EntryDetect() {
+    Cconfig labels = Cconfig("../cfg/process.ini");
+    entry_times = stoi(labels["ENTRY_TIMES"]);
     entry_flag = false;
 }
 
 EntryDetect::~EntryDetect() = default;
 
 void EntryDetect::update(InstanceGroup instance_group){
+    entry_flag = false;
+    entry_face.clear();
+    Box box;
+    for (auto id : instance_group.track_ids){
+        if (instance_group.instances[id].frequency >= entry_times){
+            box = instance_group.instances[id].face_box[0];
+            entry_face.push_back(box);
+            entry_flag = true;
+        }
+    }
 }

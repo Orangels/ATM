@@ -229,6 +229,15 @@ cv::Mat get_vis(Mat &img, int frame_id, vector<int> track_id, Image image_class,
             rectangle(result_img, p1, p2, Scalar(0, 255, 255), 2, 1, 0);
         }
     }
+
+    for (auto & box : function_solver.entry_face){
+        p1.x = box.x1;
+        p1.y = box.y1;
+        p2.x = box.x2;
+        p2.y = box.y2;
+        rectangle(result_img, p1, p2, Scalar(128, 64, 0), 2, 1, 0);
+    }
+
     return result_img;
 //    imwrite("../data/results/" + to_string(frame_id) + ".jpg", img);
 

@@ -27,7 +27,9 @@ public:
     HandDetect hand_detect;
     HopDetect hop_detect;
     TurnroundDetect turnround_detect;
+    EntryDetect entry_detect;
     vector<vector<Box>> group_heads;
+    vector<Box> entry_face;
     bool group_flag, hand_flag, hop_flag, tround_flag, entry_flag;
 };
 
