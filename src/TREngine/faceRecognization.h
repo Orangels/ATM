@@ -8,6 +8,7 @@
 class CImage;
 class CFaceFeatures;
 class CImagesFeatures;
+class CGPUFaceQuery;
 class CFaceRecognization : public CModelEngine
 {
 public:
@@ -16,6 +17,7 @@ public:
 	virtual void preProcessV(std::vector<CDataShared *>& vsrc) override;
 	virtual void postProcessV(std::vector<CDataShared *>& vmodelInputes, CDataShared* voutput) override;
 	virtual void get_feature(std::vector<float>& fea);
+	void _normalize(float* vp, int vfeatureLength);
 
 private:
 	std::vector<float> m_yawPitchRol;
@@ -31,4 +33,5 @@ private:
 	Affine_ affine_instance;
 	void affine(int vbatchSize, float* vp68points, CImage* vimage, float* vdst);
 	std::vector<float> batch_face_feature;
+	CGPUFaceQuery* m_pfaceQuery=NULL;
 };

@@ -5,7 +5,19 @@
 #include "cudaCommon.h"
 #include "imagesFeatures.h"
 #include "affineInterface.h"
+#include "faceQuery.h"
 CFactory<CFaceRecognization> g_faceRecognization("CFaceRecognization");
+
+template<typename T>
+static void _printGPUdataElement(const T* vpDevice, int n, cudaStream_t stream, const std::string& vInfor)
+{
+    std::vector<T> r(n);
+    cudaMemcpyAsync(r.data(), vpDevice, sizeof(T)*n, cudaMemcpyDeviceToHost, stream);
+    cudaStreamSynchronize(stream);
+
+    cv::Mat dest(96, 96, CV_32FC1, r.data());
+    cv::imwrite(vInfor,dest);
+}
 
 CFaceRecognization::CFaceRecognization()
 {
@@ -24,6 +36,9 @@ CFaceRecognization::CFaceRecognization()
 	cudaMalloc((void**)&m_pointsBuffer, 219 * getBatchSize() * sizeof(float));
 	if (m_system)
 		splitStringAndConvert(m_pconfiger->readValue("yawPitchRol"), m_yawPitchRol, ',');
+
+	m_pfaceQuery = new CGPUFaceQuery(NULL);
+	affine_instance = *(new Affine_(m_indims.w(), m_indims.h()));
 }
 
 CFaceRecognization::~CFaceRecognization()
@@ -83,30 +98,31 @@ void CFaceRecognization::preProcessV(std::vector<CDataShared *>& vsrc)
 #include "caffePlugin.h"
 void CFaceRecognization::postProcessV(std::vector<CDataShared *>& vmodelInputes, CDataShared* voutput)
 {
-// 	CCaffePlugin::_printGPUdata((float*)modelIObuffers.front(), 112 * 112 * 3, getCudaStream(),  "recog input");
+// 	_printGPUdataElement((float*)modelIObuffers.front(), 96 * 96 * 3, getCudaStream(),  "recoginput.png");
+//    visgpudata((float*)modelIObuffers.front(), 96 * 96 * 3, getCudaStream(),  "recog input");
+// 	_printGPUdataElement((float*)modelIObuffers.back(), 1 * 1 * 128, getCudaStream(),  "recog output");
+
 	if (1)
 	{
 		CFaceInfor* pi = (CFaceInfor*)voutput;
+
 		// xxs add
 		float* feat = (float*)modelIObuffers.back();
-		std::vector<float> r(512);
-        cudaMemcpyAsync(r.data(), feat, sizeof(float) * 512, cudaMemcpyDeviceToHost,
+
+//		m_pfaceQuery->calculateL2Normal(feat, getCudaStream(),512);
+
+		int out_size = int(m_dimsOut.h() *m_dimsOut.w()*m_dimsOut.c());
+		std::vector<float> r(out_size);
+        cudaMemcpyAsync(r.data(), feat, sizeof(float) * out_size, cudaMemcpyDeviceToHost,
                             getCudaStream());
         cudaStreamSynchronize(getCudaStream());
-//        batch_face_feature.clear();
+        _normalize(r.data(),out_size);
+//        for (int i = 0; i < 128; ++i)
+//            std::cout << i<<":" << r[i] << " ";
+
+
         std::vector<float>().swap(batch_face_feature);
         batch_face_feature=r;
-
-//        batch_face_feature.clear();
-//        std::vector<std::vector<float>>().swap(batch_face_feature);
-
-//		pi->faceId = m_namesFeatures->whoAmI((float*)modelIObuffers.back(), getCudaStream());
-//		if (m_system)
-//		{
-//			CFace* pface = (CFace*)pi->m_pproducer->m_pproducer;
-//			CImage* pimg = (CImage*)pface->m_pproducer;
-//			std::get<2>(m_videoFrameFaceConfidece[pimg->videoID][pface->trackId]) = pi->faceId;
-//		}
 	}
 
 //	m_inputViceBuffer = NULL;//avoid  memory be freed twice.
@@ -127,7 +143,20 @@ void CFaceRecognization::affine(int vbatchSize, float* vp68points, CImage* vimag
 	if (show_time)
 		printf("Total execution time %3.4f ms\n", (double)(end - start) / CLOCKS_PER_SEC * 1000 / vbatchSize);
 }
-
+void CFaceRecognization::_normalize(float* vp, int vfeatureLength)
+{
+	double sum = 0;
+	float* p = vp;
+	for (int i = 0; i < vfeatureLength; ++i,++p)
+		sum += (*p) * (*p);
+	p = vp;
+	sum = sqrt(sum);
+	for (int i = 0; i < vfeatureLength; ++i, ++p)
+	{
+		*p /= sum;
+// 		if (i > 510) std::cout << sum << ", " << *p << std::endl;
+	}
+}
 void CFaceRecognization::get_feature(std::vector<float>& fea)
 {
     fea = batch_face_feature;
